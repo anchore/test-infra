@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/gruntwork-io/terratest/modules/helm"
-	http_helper "github.com/gruntwork-io/terratest/modules/http-helper"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	"github.com/gruntwork-io/terratest/modules/random"
 	"github.com/gruntwork-io/terratest/modules/shell"
 
+	"github.com/anchore/test-infra/src/test"
 	"github.com/anchore/test-infra/src/utils"
 )
 
@@ -19,7 +19,7 @@ var testName = "test-engine"
 
 func TestChartDeploysEngine(t *testing.T) {
 	// Path to the helm chart to test, or name from official stable repo
-	helmChartPath := "stable/anchore-engine"
+	helmChartPath := utils.EngineChartPath
 	// helmChartPath, err := filepath.Abs("../../stable/anchore-engine")
 	// require.NoError(t, err)
 
@@ -42,7 +42,7 @@ func TestChartDeploysEngine(t *testing.T) {
 	// Setup the Helm args.
 	options := &helm.Options{
 		KubectlOptions: kubectlOptions,
-		// SetValues:      EngineValues,
+		SetValues:      test.EngineValues,
 	}
 
 	// Generate a unique release name to refer to after deployment.
@@ -57,48 +57,42 @@ func TestChartDeploysEngine(t *testing.T) {
 	// Deploy the chart
 	helm.Install(t, options, helmChartPath, releaseName)
 
-	// Open a tunnel to an available Pod using the Service
-	serviceName := fmt.Sprintf("%s-anchore-engine-api", releaseName)
-	tunnel := utils.CreateTunnelFromService(t, kubectlOptions, serviceName)
-	defer tunnel.Close()
-	tunnel.ForwardPort(t)
-	endpoint := fmt.Sprintf("http://%s/v1", tunnel.Endpoint())
-
-	verifyEngineAPIPod(t, kubectlOptions, endpoint)
-
-	env := map[string]string{
-		"ANCHORE_CLI_URL":  endpoint,
-		"ANCHORE_CLI_PASS": "foobar",
-		"ANCHORE_CLI_USER": "admin",
+	serviceNames := map[string]string{
+		"api":           fmt.Sprintf("%s-anchore-engine-api", releaseName),
+		"catalog":       fmt.Sprintf("%s-anchore-engine-catalog", releaseName),
+		"policy-engine": fmt.Sprintf("%s-anchore-engine-policy", releaseName),
+		"simplequeue":   fmt.Sprintf("%s-anchore-engine-simplequeue", releaseName),
 	}
 
-	engineServices := []string{"analyzer", "catalog", "apiext", "simplequeue", "policy_engine"}
-	utils.VerifyEngineServiceStatus(t, engineServices, env)
+	retries := 60
+	sleep := 10 * time.Second
+	for _, s := range serviceNames {
+		k8s.WaitUntilServiceAvailable(t, kubectlOptions, s, retries, sleep)
+		if strings.Contains(s, "api") {
+			utils.VerifyEngineServiceStatus(t, kubectlOptions, s)
+		}
+	}
 
+	// If the -short option isn't passed to the test, run tox tests & save output to log file.
 	if !testing.Short() {
-		cmd := shell.Command{
+		tunnel := utils.CreateTunnelFromService(t, kubectlOptions, serviceNames["api"])
+		defer tunnel.Close()
+		tunnel.ForwardPort(t)
+		apiEndpoint := fmt.Sprintf("http://%s/v1", tunnel.Endpoint())
+
+		env := map[string]string{
+			"ANCHORE_CLI_URL":  apiEndpoint,
+			"ANCHORE_CLI_PASS": "foobar",
+			"ANCHORE_CLI_USER": "admin",
+		}
+
+		cmdTest := shell.Command{
 			Command: "tox",
 			Args:    []string{"."},
 			Env:     env,
 		}
 
-		output := shell.RunCommandAndGetOutput(t, cmd)
+		output := shell.RunCommandAndGetOutput(t, cmdTest)
 		utils.CreateFileFromString(output, "tox.log")
 	}
-}
-
-// verifyEngineAPIPod will hit the endpoint to verify the api responds.
-func verifyEngineAPIPod(t *testing.T, kubectlOptions *k8s.KubectlOptions, endpoint string) {
-	retries := 60
-	sleep := 10 * time.Second
-
-	http_helper.HttpGetWithRetryWithCustomValidation(
-		t,
-		endpoint,
-		retries,
-		sleep,
-		func(statusCode int, body string) bool {
-			return statusCode == 200 && strings.Contains(body, "v1")
-		},
-	)
 }
