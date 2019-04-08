@@ -2,7 +2,6 @@
 
 set -xeo pipefail
 
-
 cleanup() {
     ret="$?"
     set +e
@@ -12,9 +11,11 @@ cleanup() {
 
 trap 'cleanup' EXIT SIGINT SIGTERM ERR
 
+IMG_NAME="${1:-docker.io/anchore/test-infra:dev}"
+
 dep ensure
 pushd src/test/anchore-engine
 GOOS=linux GOARCH=amd64 go test -c .
 popd
 mv src/test/anchore-engine/anchore-engine.test ./
-docker build -t 'docker.io/anchore/test-infra:dev' .
+docker build -t "$IMG_NAME" .

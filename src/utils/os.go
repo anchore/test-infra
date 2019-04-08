@@ -26,7 +26,7 @@ func CreateFileFromString(content string, filename string) {
 		f.Close()
 		return
 	}
-	fmt.Println(l, "bytes written successfully")
+	fmt.Println(fmt.Sprintf("%s - %v bytes written successfully", filename, l))
 	err = f.Close()
 	if err != nil {
 		fmt.Println(err)

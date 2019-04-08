@@ -15,9 +15,8 @@ import (
 	"github.com/anchore/test-infra/src/utils"
 )
 
-var testName = "test-engine"
-
 func TestChartDeploysEngine(t *testing.T) {
+	testName := "test-engine"
 	// Path to the helm chart to test, or name from official stable repo
 	helmChartPath := utils.EngineChartPath
 	// helmChartPath, err := filepath.Abs("../../stable/anchore-engine")
@@ -57,6 +56,10 @@ func TestChartDeploysEngine(t *testing.T) {
 	// Deploy the chart
 	helm.Install(t, options, helmChartPath, releaseName)
 
+	// TODO
+	//
+	// consider using serviceName : port & creating service names with vars (for testing service ports)
+	//
 	serviceNames := map[string]string{
 		"api":           fmt.Sprintf("%s-anchore-engine-api", releaseName),
 		"catalog":       fmt.Sprintf("%s-anchore-engine-catalog", releaseName),
@@ -73,6 +76,11 @@ func TestChartDeploysEngine(t *testing.T) {
 		}
 	}
 
+	//
+	// TODO
+	//
+	// Add a call to anchore-cli system status
+
 	// If the -short option isn't passed to the test, run tox tests & save output to log file.
 	if !testing.Short() {
 		tunnel := utils.CreateTunnelFromService(t, kubectlOptions, serviceNames["api"])
@@ -88,11 +96,15 @@ func TestChartDeploysEngine(t *testing.T) {
 
 		cmdTest := shell.Command{
 			Command: "tox",
-			Args:    []string{"."},
+			Args:    []string{"--", "-s", "."},
 			Env:     env,
 		}
 
-		output := shell.RunCommandAndGetOutput(t, cmdTest)
-		utils.CreateFileFromString(output, "tox.log")
+		output, err := shell.RunCommandAndGetOutputE(t, cmdTest)
+		utils.CreateFileFromString(output, "engine_tests.log")
+		fmt.Println(output)
+		if err != nil {
+			t.Fatalf("Tox tests failed with error: %s", err)
+		}
 	}
 }
