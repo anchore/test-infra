@@ -2,6 +2,8 @@ package test
 
 import (
 	"fmt"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -33,10 +35,26 @@ func TestChartDeploysEngine(t *testing.T) {
 	)
 
 	k8s.CreateNamespace(t, kubectlOptions, namespaceName)
-	// Set the namespace in the options
-	kubectlOptions.Namespace = namespaceName
 	// Delete the namespace at the end of the test
 	defer k8s.DeleteNamespace(t, kubectlOptions, namespaceName)
+
+	// Copy imagepullsecret from default namespace to new namespace
+	imgPullSecretConfig, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "secret", "anchore-enterprise-pullcreds", "--namespace=default", "-o", "yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	re := regexp.MustCompile("(?m)[\r\n]+^.*namespace.*$")
+	imgPullSecretConfig = re.ReplaceAllString(imgPullSecretConfig, "")
+	pullSecretFileName := "pullsecret.yaml"
+	utils.CreateFileFromString(imgPullSecretConfig, pullSecretFileName)
+	k8s.RunKubectl(t, kubectlOptions, "apply", "-f", pullSecretFileName, "--namespace", namespaceName)
+	os.Remove(pullSecretFileName)
+
+	// Add imagepullsecret to the namespace default service account
+	k8s.RunKubectl(t, kubectlOptions, "patch", "sa", "default", "--namespace", namespaceName, "-p", "\"imagePullSecrets\": [{\"name\": \"anchore-enterprise-pullcreds\"}]")
+
+	// Set the namespace in the options
+	kubectlOptions.Namespace = namespaceName
 
 	// Setup the Helm args.
 	options := &helm.Options{
