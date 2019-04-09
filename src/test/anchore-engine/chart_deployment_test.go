@@ -3,13 +3,13 @@ package test
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
-	"github.com/gruntwork-io/terratest/modules/logger"
 	"github.com/gruntwork-io/terratest/modules/random"
 	"github.com/gruntwork-io/terratest/modules/shell"
 
@@ -17,9 +17,15 @@ import (
 	"github.com/anchore/test-infra/src/utils"
 )
 
-func TestChartDeploysEnterprise(t *testing.T) {
-	testName := "test-ent"
+func TestChartDeploysEngine(t *testing.T) {
+	verifyChartDeployment(t, "engine-test", false)
+}
 
+func TestChartDeploysEnterprise(t *testing.T) {
+	verifyChartDeployment(t, "enterprise-test", true)
+}
+
+func verifyChartDeployment(t *testing.T, testName string, enterpriseDeploy bool) {
 	// Path to the helm chart to test, or name from official stable repo
 	helmChartPath := utils.EngineChartPath
 	// helmChartPath, err := filepath.Abs("../../stable/anchore-engine")
@@ -44,7 +50,10 @@ func TestChartDeploysEnterprise(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	logger.Log(t, imgPullSecretConfig)
+	// Regex used to remove lines that contain 'namespace: default'
+	re := regexp.MustCompile("(?m)[\r\n]+^.*namespace:.default.*$")
+
+	imgPullSecretConfig = re.ReplaceAllString(imgPullSecretConfig, "")
 	pullSecretFileName := "pullsecret.yaml"
 	utils.CreateFileFromString(imgPullSecretConfig, pullSecretFileName)
 	k8s.RunKubectl(t, kubectlOptions, "apply", "-f", pullSecretFileName, "--namespace", namespaceName)
@@ -53,15 +62,18 @@ func TestChartDeploysEnterprise(t *testing.T) {
 	// Add imagepullsecret to the namespace default service account
 	k8s.RunKubectl(t, kubectlOptions, "patch", "sa", "default", "--namespace", namespaceName, "-p", "\"imagePullSecrets\": [{\"name\": \"anchore-enterprise-pullcreds\"}]")
 
-	// Copy enterprise license from default namespace to new namespace
-	licenseSecretFileName := "license_secret.yaml"
-	licenseSecretConfig, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "secret", "anchore-enterprise-license", "--namespace=default", "--export", "-o", "yaml")
-	if err != nil {
-		t.Fatal(err)
+	if enterpriseDeploy == true {
+		// Copy enterprise license from default namespace to new namespace
+		licenseSecretFileName := "license_secret.yaml"
+		licenseSecretConfig, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "secret", "anchore-enterprise-license", "--namespace=default", "-o", "yaml")
+		if err != nil {
+			t.Fatal(err)
+		}
+		licenseSecretConfig = re.ReplaceAllString(licenseSecretConfig, "")
+		utils.CreateFileFromString(licenseSecretConfig, licenseSecretFileName)
+		k8s.RunKubectl(t, kubectlOptions, "apply", "-f", licenseSecretFileName, "--namespace", namespaceName)
+		os.Remove(licenseSecretFileName)
 	}
-	utils.CreateFileFromString(licenseSecretConfig, licenseSecretFileName)
-	k8s.RunKubectl(t, kubectlOptions, "apply", "-f", licenseSecretFileName, "--namespace", namespaceName)
-	os.Remove(licenseSecretFileName)
 
 	// Set the namespace in the options
 	kubectlOptions.Namespace = namespaceName
@@ -69,7 +81,11 @@ func TestChartDeploysEnterprise(t *testing.T) {
 	// Setup the Helm args.
 	options := &helm.Options{
 		KubectlOptions: kubectlOptions,
-		SetValues:      test.EnterpriseValues,
+	}
+	if enterpriseDeploy == true {
+		options.SetValues = test.EnterpriseValues
+	} else {
+		options.SetValues = test.EngineValues
 	}
 
 	// Generate a unique release name to refer to after deployment.
@@ -87,6 +103,7 @@ func TestChartDeploysEnterprise(t *testing.T) {
 	// TODO
 	//
 	// consider using serviceName : port & creating service names with vars (for testing service ports)
+	// Add enterprise services
 	//
 	serviceNames := map[string]string{
 		"api":           fmt.Sprintf("%s-anchore-engine-api", releaseName),
