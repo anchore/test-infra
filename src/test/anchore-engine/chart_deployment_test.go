@@ -43,8 +43,14 @@ func verifyChartDeployment(t *testing.T, testName string, enterpriseDeploy bool)
 
 	k8s.CreateNamespace(t, kubectlOptions, namespaceName)
 	// Delete the namespace at the end of the test
-	defer k8s.DeleteNamespace(t, kubectlOptions, namespaceName)
+	if !utils.PersistChart {
+		defer k8s.DeleteNamespace(t, kubectlOptions, namespaceName)
+	}
 
+	// TODO -
+	// Using the Terratest command/kubectl functions always prints secrets to screen.
+	// Implement Go's exec.Command manually to capture secret without printing to screen
+	//
 	// Copy imagepullsecret from default namespace to new namespace
 	imgPullSecretConfig, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "secret", "anchore-enterprise-pullcreds", "--namespace=default", "-o", "yaml")
 	if err != nil {
@@ -62,7 +68,7 @@ func verifyChartDeployment(t *testing.T, testName string, enterpriseDeploy bool)
 	// Add imagepullsecret to the namespace default service account
 	k8s.RunKubectl(t, kubectlOptions, "patch", "sa", "default", "--namespace", namespaceName, "-p", "\"imagePullSecrets\": [{\"name\": \"anchore-enterprise-pullcreds\"}]")
 
-	if enterpriseDeploy == true {
+	if enterpriseDeploy {
 		// Copy enterprise license from default namespace to new namespace
 		licenseSecretFileName := "license_secret.yaml"
 		licenseSecretConfig, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "secret", "anchore-enterprise-license", "--namespace=default", "-o", "yaml")
@@ -95,7 +101,9 @@ func verifyChartDeployment(t *testing.T, testName string, enterpriseDeploy bool)
 		strings.ToLower(random.UniqueId()),
 	)
 	// Delete the release at the end of the test
-	defer helm.Delete(t, options, releaseName, true)
+	if !utils.PersistChart {
+		defer helm.Delete(t, options, releaseName, true)
+	}
 
 	// Deploy the chart
 	helm.Install(t, options, helmChartPath, releaseName)
