@@ -1,0 +1,30 @@
+# CircleCI 2.1 configuration file
+#
+# Check https://circleci.com/docs/2.0/configuration-reference/ for more details
+#
+# Start circleci config
+version: 2.1
+jobs:
+  build:
+    docker:
+    - image: docker:stable-git
+    steps:
+    - setup_remote_docker
+    - checkout
+    - run: 
+        name: build image
+        command: docker build -t docker.io/anchore/test-infra:dev .
+    - run:
+        name: push to dockerhub
+        command: |
+          echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+          docker tag docker.io/anchore/test-infra:dev docker.io/anchore/test-infra:latest
+          docker push docker.io/anchore/test-infra:dev
+          if [[ "$CIRCLE_BRANCH" = "master" ]]; then
+              docker push docker.io/anchore/test-infra:latest
+          fi
+
+workflows:
+  default_workflow:
+    jobs:
+    - build

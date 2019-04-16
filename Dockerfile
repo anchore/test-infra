@@ -1,3 +1,17 @@
+FROM golang:latest as compiler
+RUN set -ex; \
+    go get -u github.com/golang/dep/cmd/dep; \
+    mkdir -p /go/src/github.com/anchore/test-infra/src
+
+WORKDIR /go/src/github.com/anchore/test-infra
+
+COPY . .
+
+RUN set -ex; \
+    dep ensure; \
+    cd src/test/anchore-engine; \
+    GOOS=linux GOARCH=amd64 go test -c .
+
 FROM circleci/python:3.6
 
 RUN sudo pip install --upgrade pip; \
@@ -15,4 +29,5 @@ RUN curl https://raw.githubusercontent.com/helm/helm/master/scripts/get | bash; 
     sudo apt-get update; \
     sudo apt-get install -y kubectl
 
-COPY anchore-engine.test /usr/local/bin
+COPY --from=compiler /go/src/github.com/anchore/test-infra/src/test/anchore-engine/anchore-engine.test /usr/local/bin/anchore-engine.test
+COPY scripts/ci_utils.sh /usr/local/bin/ci_utils.sh

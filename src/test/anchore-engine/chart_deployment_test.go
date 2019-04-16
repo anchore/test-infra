@@ -13,7 +13,6 @@ import (
 	"github.com/gruntwork-io/terratest/modules/random"
 	"github.com/gruntwork-io/terratest/modules/shell"
 
-	"github.com/anchore/test-infra/src/test"
 	"github.com/anchore/test-infra/src/utils"
 )
 
@@ -89,9 +88,9 @@ func verifyChartDeployment(t *testing.T, testName string, enterpriseDeploy bool)
 		KubectlOptions: kubectlOptions,
 	}
 	if enterpriseDeploy == true {
-		options.SetValues = test.EnterpriseValues
+		options.SetValues = EnterpriseValues
 	} else {
-		options.SetValues = test.EngineValues
+		options.SetValues = EngineValues
 	}
 
 	// Generate a unique release name to refer to after deployment.
