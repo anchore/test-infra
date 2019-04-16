@@ -27,4 +27,5 @@ jobs:
 workflows:
   default_workflow:
     jobs:
-    - build
+    - build:
+        context: dockerhub

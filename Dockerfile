@@ -1,7 +1,7 @@
-FROM golang:latest as compiler
+FROM golang:1.12 as compiler
 RUN set -ex; \
     go get -u github.com/golang/dep/cmd/dep; \
-    mkdir -p /go/src/github.com/anchore/test-infra/src
+    mkdir -p /go/src/github.com/anchore/test-infra
 
 WORKDIR /go/src/github.com/anchore/test-infra
 
