@@ -19,14 +19,13 @@ function gather_artifacts {
         declare COMMIT_SHA
         declare VAR
         VAR="${i//-/_}_SHA"
+        set -ex
         touch artifacts.txt
         if [[ "$i" != "$circle_run_repo" ]]; then
-            set -x
             COMMIT_SHA=$(git ls-remote git@github.com:anchore/${i} "refs/heads/${CIRCLE_BRANCH:-master}" | awk '{ print $1 }')
-            set +x
             echo "export $VAR=$COMMIT_SHA" | tee -a artifacts.txt
         elif [[ "$i" = "$circle_run_repo" ]]; then
-            echo "export ${VAR^^}=$CIRCLE_SHA1" | tee -a artifacts.txt
+            echo "export $VAR=$CIRCLE_SHA1" | tee -a artifacts.txt
         fi
     done
 }
