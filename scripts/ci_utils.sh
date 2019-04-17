@@ -33,7 +33,9 @@ function gather_artifacts {
 
 function trigger_artifact_build {
     declare circle_run_repo=$1
-    gather_artifacts $circle_run_repo
+    if [[ ! -f artifacts.txt ]]; then
+        gather_artifacts $circle_run_repo
+    fi
     source artifacts.txt
     set -eux
     curl --user ${CIRCLE_API_TOKEN}: \
