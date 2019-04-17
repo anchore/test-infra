@@ -28,6 +28,7 @@ function gather_artifacts {
             echo "export $VAR=$CIRCLE_SHA1" | tee -a artifacts.txt
         fi
     done
+    source artifacts.txt
 }
 
 function trigger_artifact_build {
