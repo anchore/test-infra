@@ -31,3 +31,5 @@ RUN curl https://raw.githubusercontent.com/helm/helm/master/scripts/get | bash; 
 
 COPY --from=compiler /go/src/github.com/anchore/test-infra/src/test/anchore-engine/anchore-engine.test /usr/local/bin/anchore-engine.test
 COPY scripts/ci_utils.sh /usr/local/bin/ci_utils.sh
+
+WORKDIR /home/circleci
