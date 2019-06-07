@@ -50,6 +50,9 @@ func verifyChartDeployment(t *testing.T, testName string, enterpriseDeploy bool)
 	// Using the Terratest command/kubectl functions always prints secrets to screen.
 	// Implement Go's exec.Command manually to capture secret without printing to screen
 	//
+	// Consider storing secrets in ENV vars in circleci, echo into a file in job before running tests.
+	// Then create secrets using local files - this allows running tests on any cluster w/out secret files.
+	//
 	// Copy imagepullsecret from default namespace to new namespace
 	imgPullSecretConfig, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "secret", "anchore-enterprise-pullcreds", "--namespace=default", "-o", "yaml")
 	if err != nil {
@@ -132,6 +135,8 @@ func verifyChartDeployment(t *testing.T, testName string, enterpriseDeploy bool)
 	// TODO
 	//
 	// Add a call to anchore-cli system status
+	//
+	// Add a condition for failure to describe all pods and tail pod logs.
 
 	// If the -short option isn't passed to the test, run tox tests & save output to log file.
 	if !testing.Short() {

@@ -6,10 +6,8 @@ import (
 
 // EngineValues contains values for a base anchore engine install.
 var EngineValues = map[string]string{
-	"anchoreGlobal.image":                     utils.EngineImageName,
-	"anchoreGlobal.imagePullPolicy":           "Always",
-	"anchoreGlobal.serviceDir":                "/config",
-	"anchoreAnalyzer.scratchVolume.mountPath": "/tmp",
+	"anchoreGlobal.image":           utils.EngineImageName,
+	"anchoreGlobal.imagePullPolicy": "Always",
 }
 
 // EnterpriseValues contains values for a base anchore engine install.
@@ -21,6 +19,4 @@ var EnterpriseValues = map[string]string{
 	"anchoreEnterpriseGlobal.imagePullPolicy": "Always",
 	"anchoreEnterpriseUi.image":               utils.UIImageName,
 	"anchoreEnterpriseUi.imagePullPolicy":     "Always",
-	"anchoreGlobal.serviceDir":                "/config",
-	"anchoreAnalyzer.scratchVolume.mountPath": "/tmp",
 }
