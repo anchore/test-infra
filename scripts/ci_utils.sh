@@ -22,13 +22,12 @@ function gather_artifacts {
         set -ex
         touch artifacts.txt
         if [[ "$i" != "$circle_run_repo" ]]; then
-            COMMIT_SHA=$(git ls-remote git@github.com:anchore/${i} "refs/heads/${CIRCLE_BRANCH:-master}" | awk '{ print $1 }')
+            COMMIT_SHA=$({ git ls-remote --exit-code git@github.com:anchore/${i} "refs/heads/${CIRCLE_BRANCH:-master}" || git ls-remote git@github.com:anchore/${i} refs/heads/master; } | awk '{ print $1 }')
             echo "export $VAR=$COMMIT_SHA" | tee -a artifacts.txt
         elif [[ "$i" = "$circle_run_repo" ]]; then
             echo "export $VAR=$CIRCLE_SHA1" | tee -a artifacts.txt
         fi
     done
-    source artifacts.txt
 }
 
 function trigger_artifact_build {
