@@ -3,8 +3,10 @@
 # Utility functions used in all projects for CI build/testing.
 
 RELEASE_ARTIFACTS=( "anchore-engine" "anchore-cli" "enterprise" "anchore-on-prem-ui" )
-CIRCLE_BASE_URL:="https://circleci.com/api/v1.1/project/github"
-echo ${CIRCLE_BRANCH:=master}
+CIRCLE_BASE_URL="https://circleci.com/api/v1.1/project/github"
+CIRCLE_BRANCH=${CIRCLE_BRANCH:=master}
+CIRCLE_PROJECT_REPONAME=${CIRCLE_PROJECT_REPONAME:=release-candidates}
+CIRCLE_PROJECT_USERNAME=${CIRCLE_PROJECT_USERNAME:=anchore}
 
 gather_artifacts() {
     local circleRunRepo=$1
@@ -43,8 +45,7 @@ trigger_artifact_build() {
 get_running_jobs() {
   local circleApiResponse
   local runningJobs
-
-  circleApiResponse=$(curl --silent --show-error --user ${CIRCLE_API_TOKEN} "${CIRCLE_BASE_URL}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/tree/${CIRCLE_BRANCH}" -H "Accept: application/json")
+  circleApiResponse=$(curl --silent --show-error -H "Accept: application/json" --user "${CIRCLE_API_TOKEN}": "${CIRCLE_BASE_URL}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/tree/${CIRCLE_BRANCH}")
   runningJobs=$(echo "$circleApiResponse" | jq "map(if .status == \"running\" and .vcs_revision != \"${CIRCLE_SHA1}\" then .build_num else \"None\" end) - [\"None\"] | .[]")
   echo "$runningJobs"
 }
@@ -52,13 +53,37 @@ get_running_jobs() {
 cancel_running_jobs() {
   local runningJobs
   runningJobs=$(get_running_jobs)
-  for buildNum in $runningJobs;
-  do
-    echo Canceling "$buildNum"
-    curl --silent --show-error -X POST --user ${CIRCLE_API_TOKEN} "${CIRCLE_BASE_URL}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/${buildNum}/cancel" >/dev/null
+  echo "$runningJobs"
+  for buildNum in $runningJobs; do
+    echo "Canceling $buildNum"
+    curl --silent --show-error -X POST --user "${CIRCLE_API_TOKEN}": "${CIRCLE_BASE_URL}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/${buildNum}/cancel" >/dev/null
   done
 }
 
+is_running_jobs() {
+    local runningJobs
+    runningJobs=$(get_running_jobs)
+    if [[ -z "$runningJobs" ]]; then
+        echo false
+    else
+        echo true
+    fi
+}
+
+wait_running_jobs() {
+    local -i timeout=${1:-60}
+    local -i timer=0
+    while $(is_running_jobs); do
+        if [[ "$timer" -ge "$timeout" ]]; then
+            echo "timed out waiting for jobs to finish"
+            exit 1
+        else
+            echo "waiting for job to finish - ${CIRCLE_PROJECT_REPONAME} build# $(get_running_jobs)"
+            sleep 10
+        fi
+        timer+=1
+    done
+}
 
 ci_test_job() {
     local ci_image=$1
@@ -110,26 +135,6 @@ save_image() {
     docker save -o "${WORKSPACE}/caches/${PROJECT_REPONAME}-${anchore_version}-dev.tar" "${IMAGE_REPO}:dev-${anchore_version}"
 }
 
-setup_and_print_env_vars() {
-    # Export & print all project env vars to the screen
-    echo "${color_yellow}"
-    printf "%s\n\n" "- ENVIRONMENT VARIABLES SET -"
-    echo "BUILD_VERSIONS=${BUILD_VERSIONS[@]}"
-    printf "%s\n" "LATEST_VERSION=$LATEST_VERSION"
-    for var in ${PROJECT_VARS[@]}; do
-        export "$var"
-        printf "%s" "${color_yellow}"
-        printf "%s\n" "$var"
-    done
-    echo "${color_normal}"
-    # If running tests manually, sleep for a few seconds to give time to visually double check that ENV is setup correctly
-    if [[ "$CI" == false ]]; then
-        sleep 5
-    fi
-    # Setup a variable for docker image cleanup at end of script
-    declare -a DOCKER_RUN_IDS
-    export DOCKER_RUN_IDS
-}
 
 setup_build_environment() {
     # Copy source code to $WORKING_DIRECTORY for mounting to docker volume as working dir
@@ -141,3 +146,11 @@ setup_build_environment() {
     pushd "$WORKING_DIRECTORY"
     install_dependencies || true
 }
+
+# if declare -f "$1" > /dev/null; then
+#     "$@"
+# else
+#     display_usage >&2
+#     printf "%sERROR - %s is not a valid function name %s\n" "$color_red" "$1" "$color_normal" >&2
+#     exit 1
+# fi
