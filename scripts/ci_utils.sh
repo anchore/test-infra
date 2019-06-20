@@ -1,12 +1,17 @@
 #!/bin/bash
 
-# Utility functions used in all projects for CI build/testing.
+set -euo pipefail
 
 RELEASE_ARTIFACTS=( "anchore-engine" "anchore-cli" "enterprise" "anchore-on-prem-ui" )
 CIRCLE_BASE_URL="https://circleci.com/api/v1.1/project/github"
 GIT_BRANCH=${CIRCLE_BRANCH:=master}
 PROJECT_REPONAME=${CIRCLE_PROJECT_REPONAME:=release-candidates}
 CIRCLE_PROJECT_USERNAME=${CIRCLE_PROJECT_USERNAME:=anchore}
+COMMIT_SHA=${CIRCLE_SHA1:=master}
+
+###################################################################
+### Utility functions used in all projects for CI build/testing ###
+###################################################################
 
 gather_artifacts() {
     local circleRunRepo=$1
@@ -16,22 +21,20 @@ gather_artifacts() {
         local commitSHA
         local tempVar
         tempVar="${projectRepo//-/_}_SHA"
-        set -ex
         if [[ "$projectRepo" != "$circleRunRepo" ]]; then
             commitSHA=$({ git ls-remote --exit-code git@github.com:anchore/${projectRepo} "refs/heads/${GIT_BRANCH}" || git ls-remote git@github.com:anchore/${projectRepo} refs/heads/master; } | awk '{ print $1 }')
             echo "export $tempVar=$commitSHA" | tee -a artifacts.txt
         elif [[ "$projectRepo" = "$circleRunRepo" ]]; then
-            echo "export $tempVar=$CIRCLE_SHA1" | tee -a artifacts.txt
+            echo "export $tempVar=$COMMIT_SHA" | tee -a artifacts.txt
         fi
     done
 }
 
 trigger_artifact_build() {
-    set -eux
     curl --user ${CIRCLE_API_TOKEN}: \
-         --data build_parameters[CIRCLE_JOB]=build \
+         --data build_parameters[CIRCLE_JOB]=release \
          --data build_parameters[ARTIFACT_PROJECT_REPO=${PROJECT_REPONAME}
-         --data build_parameters[ARTIFACT_COMMIT_SHA]=${CIRCLE_SHA1} \
+         --data build_parameters[ARTIFACT_COMMIT_SHA]=${COMMIT_SHA} \
     ${CIRCLE_BASE_URL}/anchore/release-candidates/tree/${GIT_BRANCH}
 }
 
@@ -39,7 +42,7 @@ get_running_jobs() {
   local circleApiResponse
   local runningJobs
   circleApiResponse=$(curl --silent --show-error -H "Accept: application/json" --user "${CIRCLE_API_TOKEN}": "${CIRCLE_BASE_URL}/${CIRCLE_PROJECT_USERNAME}/${PROJECT_REPONAME}/tree/${GIT_BRANCH}")
-  runningJobs=$(echo "$circleApiResponse" | jq "map(if .status == \"running\" and .vcs_revision != \"${CIRCLE_SHA1}\" then .build_num else \"None\" end) - [\"None\"] | .[]")
+  runningJobs=$(echo "$circleApiResponse" | jq "map(if .status == \"running\" and .vcs_revision != \"${COMMIT_SHA}\" then .build_num else \"None\" end) - [\"None\"] | .[]")
   echo "$runningJobs"
 }
 
