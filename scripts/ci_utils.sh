@@ -6,8 +6,9 @@ RELEASE_ARTIFACTS=( "anchore-engine" "anchore-cli" "enterprise" "anchore-on-prem
 CIRCLE_BASE_URL="https://circleci.com/api/v1.1/project/github"
 GIT_BRANCH=${CIRCLE_BRANCH:=master}
 PROJECT_REPONAME=${CIRCLE_PROJECT_REPONAME:=release-candidates}
-CIRCLE_PROJECT_USERNAME=${CIRCLE_PROJECT_USERNAME:=anchore}
 COMMIT_SHA=${CIRCLE_SHA1:=master}
+CIRCLE_PROJECT_USERNAME=${CIRCLE_PROJECT_USERNAME:=anchore}
+CIRCLE_API_TOKEN=${CIRCLE_API_TOKEN:=test}
 
 ###################################################################
 ### Utility functions used in all projects for CI build/testing ###
