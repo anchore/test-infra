@@ -4,8 +4,8 @@
 
 RELEASE_ARTIFACTS=( "anchore-engine" "anchore-cli" "enterprise" "anchore-on-prem-ui" )
 CIRCLE_BASE_URL="https://circleci.com/api/v1.1/project/github"
-CIRCLE_BRANCH=${CIRCLE_BRANCH:=master}
-CIRCLE_PROJECT_REPONAME=${CIRCLE_PROJECT_REPONAME:=release-candidates}
+GIT_BRANCH=${CIRCLE_BRANCH:=master}
+PROJECT_REPONAME=${CIRCLE_PROJECT_REPONAME:=release-candidates}
 CIRCLE_PROJECT_USERNAME=${CIRCLE_PROJECT_USERNAME:=anchore}
 
 gather_artifacts() {
@@ -18,7 +18,7 @@ gather_artifacts() {
         tempVar="${projectRepo//-/_}_SHA"
         set -ex
         if [[ "$projectRepo" != "$circleRunRepo" ]]; then
-            commitSHA=$({ git ls-remote --exit-code git@github.com:anchore/${projectRepo} "refs/heads/${CIRCLE_BRANCH:-master}" || git ls-remote git@github.com:anchore/${projectRepo} refs/heads/master; } | awk '{ print $1 }')
+            commitSHA=$({ git ls-remote --exit-code git@github.com:anchore/${projectRepo} "refs/heads/${GIT_BRANCH}" || git ls-remote git@github.com:anchore/${projectRepo} refs/heads/master; } | awk '{ print $1 }')
             echo "export $tempVar=$commitSHA" | tee -a artifacts.txt
         elif [[ "$projectRepo" = "$circleRunRepo" ]]; then
             echo "export $tempVar=$CIRCLE_SHA1" | tee -a artifacts.txt
@@ -27,25 +27,18 @@ gather_artifacts() {
 }
 
 trigger_artifact_build() {
-    local circleRunRepo=$1
-    if [[ ! -f artifacts.txt ]]; then
-        gather_artifacts $circleRunRepo
-    fi
-    source artifacts.txt
     set -eux
     curl --user ${CIRCLE_API_TOKEN}: \
          --data build_parameters[CIRCLE_JOB]=build \
-         --data build_parameters[anchore_engine_SHA]=${anchore_engine_SHA} \
-         --data build_parameters[anchore_cli_SHA]=${anchore_cli_SHA} \
-         --data build_parameters[enterprise_SHA]=${enterprise_SHA} \
-         --data build_parameters[anchore_on_prem_ui_SHA]=${anchore_on_prem_ui_SHA} \
-    ${CIRCLE_BASE_URL}/anchore/release-candidates/tree/${CIRCLE_BRANCH}
+         --data build_parameters[ARTIFACT_PROJECT_REPO=${PROJECT_REPONAME}
+         --data build_parameters[ARTIFACT_COMMIT_SHA]=${CIRCLE_SHA1} \
+    ${CIRCLE_BASE_URL}/anchore/release-candidates/tree/${GIT_BRANCH}
 }
 
 get_running_jobs() {
   local circleApiResponse
   local runningJobs
-  circleApiResponse=$(curl --silent --show-error -H "Accept: application/json" --user "${CIRCLE_API_TOKEN}": "${CIRCLE_BASE_URL}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/tree/${CIRCLE_BRANCH}")
+  circleApiResponse=$(curl --silent --show-error -H "Accept: application/json" --user "${CIRCLE_API_TOKEN}": "${CIRCLE_BASE_URL}/${CIRCLE_PROJECT_USERNAME}/${PROJECT_REPONAME}/tree/${GIT_BRANCH}")
   runningJobs=$(echo "$circleApiResponse" | jq "map(if .status == \"running\" and .vcs_revision != \"${CIRCLE_SHA1}\" then .build_num else \"None\" end) - [\"None\"] | .[]")
   echo "$runningJobs"
 }
@@ -56,7 +49,7 @@ cancel_running_jobs() {
   echo "$runningJobs"
   for buildNum in $runningJobs; do
     echo "Canceling $buildNum"
-    curl --silent --show-error -X POST --user "${CIRCLE_API_TOKEN}": "${CIRCLE_BASE_URL}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/${buildNum}/cancel" >/dev/null
+    curl --silent --show-error -X POST --user "${CIRCLE_API_TOKEN}": "${CIRCLE_BASE_URL}/${CIRCLE_PROJECT_USERNAME}/${PROJECT_REPONAME}/${buildNum}/cancel" >/dev/null
   done
 }
 
@@ -78,7 +71,7 @@ wait_running_jobs() {
             echo "timed out waiting for jobs to finish"
             exit 1
         else
-            echo "waiting for job to finish - ${CIRCLE_PROJECT_REPONAME} build# $(get_running_jobs)"
+            echo "waiting for job to finish - ${PROJECT_REPONAME} build# $(get_running_jobs)"
             sleep 10
         fi
         timer+=1
@@ -147,10 +140,12 @@ setup_build_environment() {
     install_dependencies || true
 }
 
-# if declare -f "$1" > /dev/null; then
-#     "$@"
-# else
-#     display_usage >&2
-#     printf "%sERROR - %s is not a valid function name %s\n" "$color_red" "$1" "$color_normal" >&2
-#     exit 1
-# fi
+if [[ "$BASH_SOURCE" == "$0" ]]; then
+    if declare -f "$1" > /dev/null; then
+        "$@"
+    else
+        display_usage >&2
+        printf "%sERROR - %s is not a valid function name %s\n" "$color_red" "$1" "$color_normal" >&2
+        exit 1
+    fi
+fi
