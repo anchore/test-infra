@@ -33,7 +33,7 @@ gather_artifacts() {
 trigger_artifact_build() {
     curl --user ${CIRCLE_API_TOKEN}: \
          --data build_parameters[CIRCLE_JOB]=release \
-         --data build_parameters[ARTIFACT_PROJECT_REPO=${PROJECT_REPONAME} \
+         --data build_parameters[ARTIFACT_PROJECT_REPO]=${PROJECT_REPONAME} \
          --data build_parameters[ARTIFACT_COMMIT_SHA]=${COMMIT_SHA} \
     ${CIRCLE_BASE_URL}/anchore/release-candidates/tree/${GIT_BRANCH}
 }
