@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -evuo pipefail
 
 RELEASE_ARTIFACTS=( "anchore-engine" "anchore-cli" "enterprise" "anchore-on-prem-ui" )
 CIRCLE_BASE_URL="https://circleci.com/api/v1.1/project/github"
@@ -61,17 +61,17 @@ is_running_jobs() {
     local runningJobs
     runningJobs=$(get_running_jobs)
     if [[ -z "$runningJobs" ]]; then
-        echo false
+        echo 'false'
     else
-        echo true
+        echo 'true'
     fi
 }
 
 wait_running_jobs() {
-    local -i timeout=${1:-60}
+    local -i timeout=${1:-600}
     local -i timer=0
     while $(is_running_jobs); do
-        if [[ "$timer" -ge "$timeout" ]]; then
+        if [[ "$(($timer * 10))" -ge "$timeout" ]]; then
             echo "timed out waiting for jobs to finish"
             exit 1
         else
