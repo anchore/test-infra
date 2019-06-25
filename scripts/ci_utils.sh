@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -evuo pipefail
+set -euo pipefail
 
 RELEASE_ARTIFACTS=( "anchore-engine" "anchore-cli" "enterprise" "anchore-on-prem-ui" )
 CIRCLE_BASE_URL="https://circleci.com/api/v1.1/project/github"
@@ -29,6 +29,7 @@ gather_artifacts() {
             echo "export $tempVar=$COMMIT_SHA" | tee -a artifacts.txt
         fi
     done
+    source artifacts.txt
 }
 
 trigger_artifact_build() {
