@@ -9,8 +9,8 @@ nodeGroups:
   - name: ng-1
     instanceType: t3.medium
     availabilityZones: ["us-west-2b"]
-    desiredCapacity: 0
-    minSize: 0
+    desiredCapacity: 1
+    minSize: 1
     maxSize: 6
     ssh:
       allow: true
