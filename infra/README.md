@@ -17,12 +17,12 @@ Setup awscli profiles for accessing the Anchore-Testing AWS account using role-s
     eksctl create cluster -f cluster.yaml --profile testing`
     ```
 
-2. Connect to cluster using kubectl
+1. Connect to cluster using kubectl
     ```bash
     aws eks --region us-west-2 update-kubeconfig --name anchore-ci --profile testing`
     ```
 
-3. Install tiller to cluster
+1. Install tiller to cluster
     ```bash
     helm init
 
@@ -34,20 +34,31 @@ Setup awscli profiles for accessing the Anchore-Testing AWS account using role-s
 
     helm init --service-account tiller --upgrade
     ```
+1. Update aws configuration to allow circleci-eks IAM user access to cluster.
+   ```bash
+   kubectl edit -n kube-system configmap/aws-auth
 
-4. Copy demo enterprise license & readonly dockerhub account creds to cluster.
+    Add to file -
+        data:
+            mapUsers: |
+               - userarn: arn:aws:iam::342104460048:user/circleci-eks
+                   username: circleci-eks
+                   groups:
+                   - system:masters
+    ```
+1. Copy demo enterprise license & readonly dockerhub account creds to cluster.
     ```bash
     kubectl create secret generic anchore-enterprise-license --from-file=license.yaml=license.yaml -n default
 
     kubectl create secret docker-registry anchore-enterprise-pullcreds --docker-server=docker.io --docker-username=anchoreci --docker-password=xxxxxxxxxxxxxxx --docker-email=anchoreci@anchore.com -n default
     ```
 
-5. Add pullcreds to default service account.
+1. Add pullcreds to default service account.
     ```bash
     k patch serviceaccount default -p '{"imagePullSecrets":[{"name": "anchore-enterprise-pullcreds"}]}' --type=merge
     ```
 
-6. Create EKS cluster autoscaler. Replace `<EKS_CLUSTER_AUTOSCALING_GROUP_NAME>` in cluster-autoscaler.yml with the name of the eks node autoscaling group created by eksctl. Then apply config to the cluster.
+1. Create EKS cluster autoscaler. Replace `<EKS_CLUSTER_AUTOSCALING_GROUP_NAME>` in cluster-autoscaler.yml with the name of the eks node autoscaling group created by eksctl. Then apply config to the cluster.
     ```bash
     CLUSTER_NAME=$(aws autoscaling describe-auto-scaling-groups --query "AutoScalingGroups[? Tags[? (Key=='alpha.eksctl.io/cluster-name') && Value=='anchore-ci']]".AutoScalingGroupName --profile testing --output text)
 
