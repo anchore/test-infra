@@ -33,6 +33,7 @@ gather_artifacts() {
 }
 
 trigger_artifact_build() {
+    wait_running_jobs release-candidates
     curl --user ${CIRCLE_API_TOKEN}: \
          --data build_parameters[CIRCLE_JOB]=release \
          --data build_parameters[ARTIFACT_PROJECT_REPO]=${PROJECT_REPONAME} \
@@ -43,24 +44,27 @@ trigger_artifact_build() {
 get_running_jobs() {
   local circleApiResponse
   local runningJobs
-  circleApiResponse=$(curl --silent --show-error -H "Accept: application/json" --user "${CIRCLE_API_TOKEN}": "${CIRCLE_BASE_URL}/${CIRCLE_PROJECT_USERNAME}/${PROJECT_REPONAME}/tree/${GIT_BRANCH}")
+  local repoName=${1:-$PROJECT_REPONAME}
+  circleApiResponse=$(curl --silent --show-error -H "Accept: application/json" --user "${CIRCLE_API_TOKEN}": "${CIRCLE_BASE_URL}/${CIRCLE_PROJECT_USERNAME}/${repoName}/tree/${GIT_BRANCH}")
   runningJobs=$(echo "$circleApiResponse" | jq "map(if .status == \"running\" and .vcs_revision != \"${COMMIT_SHA}\" then .build_num else \"None\" end) - [\"None\"] | .[]")
   echo "$runningJobs"
 }
 
 cancel_running_jobs() {
   local runningJobs
-  runningJobs=$(get_running_jobs)
+  local repoName=${1:-$PROJECT_REPONAME}
+  runningJobs=$(get_running_jobs $repoName)
   echo "$runningJobs"
   for buildNum in $runningJobs; do
     echo "Canceling $buildNum"
-    curl --silent --show-error -X POST --user "${CIRCLE_API_TOKEN}": "${CIRCLE_BASE_URL}/${CIRCLE_PROJECT_USERNAME}/${PROJECT_REPONAME}/${buildNum}/cancel" >/dev/null
+    curl --silent --show-error -X POST --user "${CIRCLE_API_TOKEN}": "${CIRCLE_BASE_URL}/${CIRCLE_PROJECT_USERNAME}/${repoName}/${buildNum}/cancel" >/dev/null
   done
 }
 
 is_running_jobs() {
     local runningJobs
-    runningJobs=$(get_running_jobs)
+    local repoName=${1:-$PROJECT_REPONAME}
+    runningJobs=$(get_running_jobs $repoName)
     if [[ -z "$runningJobs" ]]; then
         echo 'false'
     else
@@ -69,14 +73,15 @@ is_running_jobs() {
 }
 
 wait_running_jobs() {
-    local -i timeout=${1:-600}
+    local repoName=${1:-$PROJECT_REPONAME}
+    local -i timeout=600
     local -i timer=0
-    while $(is_running_jobs); do
+    while $(is_running_jobs $repoName); do
         if [[ "$(($timer * 10))" -ge "$timeout" ]]; then
             echo "timed out waiting for jobs to finish"
             exit 1
         else
-            echo "waiting for job to finish - ${PROJECT_REPONAME} build# $(get_running_jobs)"
+            echo "waiting for job to finish - ${repoName} build# $(get_running_jobs)"
             sleep 10
         fi
         timer+=1
