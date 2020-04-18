@@ -1,12 +1,12 @@
 #!/bin/bash
 
-set -euo pipefail
+set -evuo pipefail
 
 RELEASE_ARTIFACTS=( "anchore-engine" "anchore-cli" "enterprise" "anchore-on-prem-ui" )
 CIRCLE_BASE_URL="https://circleci.com/api/v1.1/project/github"
 GIT_BRANCH=${CIRCLE_BRANCH:=master}
 PROJECT_REPONAME=${CIRCLE_PROJECT_REPONAME:=release-candidates}
-COMMIT_SHA=${CIRCLE_SHA1:=master}
+COMMIT_SHA=${CIRCLE_SHA1:=$(git rev-parse HEAD)}
 CIRCLE_PROJECT_USERNAME=${CIRCLE_PROJECT_USERNAME:=anchore}
 CIRCLE_API_TOKEN=${CIRCLE_API_TOKEN:=test}
 
@@ -86,68 +86,6 @@ wait_running_jobs() {
         fi
         timer+=1
     done
-}
-
-ci_test_job() {
-    local ci_image=$1
-    local ci_function=$2
-    local docker_name="${RANDOM:-TEMP}-ci-test"
-    docker run --net host -it --name "$docker_name" -v $(dirname "$WORKING_DIRECTORY"):$(dirname "$WORKING_DIRECTORY") -v /var/run/docker.sock:/var/run/docker.sock "$ci_image" /bin/sh -c "\
-        cd ${WORKING_DIRECTORY} && \
-        cp scripts/build.sh /tmp/build.sh && \
-        export WORKING_DIRECTORY=${WORKING_DIRECTORY} && \
-        sudo -E bash /tmp/build.sh $ci_function \
-    "
-    docker stop "$docker_name" && docker rm "$docker_name"
-    local docker_id=$(docker inspect $docker_name | jq '.[].Id')
-    DOCKER_RUN_IDS+=("$docker_id")
-}
-
-load_image() {
-    local anchore_version="$1"
-    docker load -i "${WORKSPACE}/caches/${PROJECT_REPONAME}-${anchore_version}-dev.tar"
-}
-
-push_dockerhub() {
-    local anchore_version="$1"
-    if [[ "$CI" == true ]]; then
-        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-    fi
-    if [[ "$GIT_BRANCH" == 'master' ]] && [[ "$CI" == true ]] && [[ ! "$anchore_version" == 'dev' ]]; then
-        docker tag "${IMAGE_REPO}:dev-${anchore_version}" "${IMAGE_REPO}:${anchore_version}"
-        echo "Pushing to DockerHub - ${IMAGE_REPO}:${anchore_version}"
-        docker push "${IMAGE_REPO}:${anchore_version}"
-        if [ "$anchore_version" == "$LATEST_VERSION" ]; then
-            docker tag "${IMAGE_REPO}:dev-${anchore_version}" "${IMAGE_REPO}:latest"
-            echo "Pushing to DockerHub - ${IMAGE_REPO}:latest"
-            docker push "${IMAGE_REPO}:latest"
-        fi
-    else
-        docker tag "${IMAGE_REPO}:dev-${anchore_version}" "anchore/private_testing:${PROJECT_REPONAME}-${anchore_version}"
-        echo "Pushing to DockerHub - anchore/private_testing:${PROJECT_REPONAME}-${anchore_version}"
-        if [[ "$CI" == false ]]; then
-            sleep 10
-        fi
-        docker push "anchore/private_testing:${PROJECT_REPONAME}-${anchore_version}"
-    fi
-}
-
-save_image() {
-    local anchore_version="$1"
-    mkdir -p "${WORKSPACE}/caches"
-    docker save -o "${WORKSPACE}/caches/${PROJECT_REPONAME}-${anchore_version}-dev.tar" "${IMAGE_REPO}:dev-${anchore_version}"
-}
-
-
-setup_build_environment() {
-    # Copy source code to $WORKING_DIRECTORY for mounting to docker volume as working dir
-    if [[ ! -d "$WORKING_DIRECTORY" ]]; then
-        mkdir -p "$WORKING_DIRECTORY"
-        cp -a . "$WORKING_DIRECTORY"
-    fi
-    mkdir -p "${WORKSPACE}/caches"
-    pushd "$WORKING_DIRECTORY"
-    install_dependencies || true
 }
 
 if [[ "$BASH_SOURCE" == "$0" ]]; then

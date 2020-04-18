@@ -122,7 +122,7 @@ func verifyChartDeployment(t *testing.T, testName string, enterpriseDeploy bool)
 		"simplequeue":   fmt.Sprintf("%s-anchore-engine-simplequeue", releaseName),
 	}
 
-	retries := 60
+	retries := 120
 	sleep := 10 * time.Second
 	for _, s := range serviceNames {
 		k8s.WaitUntilServiceAvailable(t, kubectlOptions, s, retries, sleep)
