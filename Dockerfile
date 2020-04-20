@@ -17,7 +17,7 @@ FROM circleci/python:3.6
 USER root
 
 RUN set -ex; \
-    mkdir -p /anchore-ci/lib /home/circleci/project; \
+    mkdir -p /anchore-ci/lib; \
     sudo apt-get update && sudo apt-get upgrade; \
     sudo pip install --upgrade pip; \
     sudo pip install --upgrade tox; \
