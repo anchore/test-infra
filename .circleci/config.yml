@@ -26,6 +26,11 @@ jobs:
 
 workflows:
   default_workflow:
+    jobs:
+    - build:
+        context: dockerhub-prod
+
+  nightly_build:
     triggers:
       - schedule:
           cron: "0 8 * * *"
