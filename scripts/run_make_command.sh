@@ -58,11 +58,9 @@ if declare -f "$1" &> /dev/null; then
     # run the task function/script with all arguments passed to it
     "$@"
 
-elif [[ -x "$1" ]]; then
+elif [[ -x "$1" ]] && [[ "$1" =~ ".sh" ]]; then
     source "$@"
 
 else
-    print_colorized ERROR "ERROR - $1 is not a valid function name or script path" >&2
-    display_usage
-    exit 1
+    "$@"
 fi

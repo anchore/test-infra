@@ -26,6 +26,13 @@ jobs:
 
 workflows:
   default_workflow:
+    triggers:
+      - schedule:
+          cron: "0 8 * * *"
+          filters:
+            branches:
+              only:
+                - master
     jobs:
     - build:
         context: dockerhub-prod
