@@ -28,4 +28,4 @@ workflows:
   default_workflow:
     jobs:
     - build:
-        context: dockerhub
+        context: dockerhub-prod
