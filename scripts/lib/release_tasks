@@ -46,7 +46,6 @@ push_dev_image() {
         docker push "${dev_image}"
     fi
 }
-export push_dev_image
 
 push_rc_image() {
     local COMMIT_SHA="${1:?'required parameter'}"
@@ -73,7 +72,6 @@ push_rc_image() {
         print_colorized WARN "CI=true must be set to push image -- ${rc_image}"
     fi
 }
-export push_rc_image
 
 push_prod_image_release() {
     local DEV_IMAGE_REPO="${1:?'required parameter'}"
@@ -109,7 +107,6 @@ push_prod_image_release() {
         print_colorized WARN "CI=true must be set to push image -- ${prod_image}"
     fi
 }
-export push_prod_image_release
 
 push_prod_image_rebuild() {
     local COMMIT_SHA="${1:?'required parameter'}"
@@ -137,4 +134,3 @@ push_prod_image_rebuild() {
         print_colorized WARN "CI=true must be set to push image -- ${rebuild_image}"
     fi
 }
-export push_prod_image_rebuild

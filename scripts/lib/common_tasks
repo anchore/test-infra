@@ -26,7 +26,6 @@ clean_project_dir() {
 
     docker rmi "${TEST_IMAGE_NAME}"
 }
-export -f clean_project_dir
 
 docker_compose_down() {
     local TEST_IMAGE_NAME="${1:?'required parameter'}"
@@ -38,7 +37,6 @@ docker_compose_down() {
     export TEST_IMAGE_NAME
     docker-compose -f scripts/ci/docker-compose-ci.yaml down
 }
-export -f docker_compose_down
 
 docker_compose_up() {
     local TEST_IMAGE_NAME="${1:?'required parameter'}"
@@ -50,7 +48,6 @@ docker_compose_up() {
     export TEST_IMAGE_NAME
     docker-compose -f scripts/ci/docker-compose-ci.yaml up -d
 }
-export -f docker_compose_up
 
 install() {
     local GIT_REPO="${1:?'required parameter'}"
@@ -60,7 +57,6 @@ install() {
     print_colorized WARN "installing ${GIT_REPO} to ${VENV}"
     "${PYTHON}" setup.py install
 }
-export -f install
 
 install_cluster_deps() {
     local VENV="${1:?'required parameter'}"
@@ -86,7 +82,6 @@ install_cluster_deps() {
         chmod +x "${VENV}/bin/kubectl"
     fi
 }
-export -f install_cluster_deps
 
 install_dev() {
     local GIT_REPO="${1:?'required parameter'}"
@@ -96,14 +91,12 @@ install_dev() {
     print_colorized WARN "installing ${GIT_REPO} in editable mode to ${VENV}"
     "${PYTHON}" -m pip install --editable .
 }
-export -f install_dev
 
 kind_cluster_down() {
     local VENV="${1:?'required parameter'}"
 
     "${VENV}/bin/kind" delete cluster --name e2e-testing
 }
-export -f kind_cluster_down
 
 kind_cluster_up() {
     local VENV="${1:?'required parameter'}"
@@ -115,7 +108,6 @@ kind_cluster_up() {
         "${VENV}/bin/kind" create cluster --name e2e-testing --config test/e2e/kind-config.yaml --image "kindest/node:${kind_node_image_tag}" --wait 60s
     fi
 }
-export -f kind_cluster_up
 
 setup_venv() {
     local VENV="${1:?'required parameter'}"
@@ -126,4 +118,3 @@ setup_venv() {
     python3 -m venv "${VENV}"
     print_colorized WARN "to enable virtual environment run: source ${VENV}/bin/activate"
 }
-export -f setup_venv

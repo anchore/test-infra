@@ -15,7 +15,6 @@ activate_venv() {
         print_colorized WARN "virtual environment - ${VENV} - not found"
     fi
 }
-export -f activate_venv
 
 continue_prompt() {
     while true; do
@@ -27,7 +26,6 @@ continue_prompt() {
         esac
     done
 }
-export -f continue_prompt
 
 print_colorized() {
     # Prints a message using the specified color code (OK, WARN, INFO, ERROR, NORMAL)
@@ -35,7 +33,6 @@ print_colorized() {
     local message=$2
     printf "\n${!color_code}%s${NORMAL}\n" "${message}"
 }
-export -f print_colorized
 
 setup_colors() {
     # Setup shell colors for print statements
@@ -46,4 +43,3 @@ setup_colors() {
         ERROR="\033[0;31m" \
         NORMAL="\033[0m"
 }
-export -f setup_colors

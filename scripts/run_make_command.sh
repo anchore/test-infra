@@ -2,7 +2,6 @@
 
 # Fail on any errors, including in pipelines and when variables are missing
 set -euo pipefail
-# export SHELLOPTS BASHOPTS
 
 display_usage() {
     cat << EOF

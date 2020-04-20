@@ -1,16 +1,16 @@
-# FROM golang:1.12 as compiler
-# RUN set -ex; \
-#     go get -u github.com/golang/dep/cmd/dep; \
-#     mkdir -p /go/src/github.com/anchore/test-infra
+FROM golang:1.12 as compiler
+RUN set -ex; \
+    go get -u github.com/golang/dep/cmd/dep; \
+    mkdir -p /go/src/github.com/anchore/test-infra
 
-# WORKDIR /go/src/github.com/anchore/test-infra
+WORKDIR /go/src/github.com/anchore/test-infra
 
-# COPY . .
+COPY . .
 
-# RUN set -ex; \
-#     dep ensure; \
-#     cd src/test/anchore-engine; \
-#     GOOS=linux GOARCH=amd64 go test -c .
+RUN set -ex; \
+    dep ensure; \
+    cd src/test/anchore-engine; \
+    GOOS=linux GOARCH=amd64 go test -c .
 
 FROM circleci/python:3.6
 
@@ -18,6 +18,7 @@ USER root
 
 RUN set -ex; \
     mkdir -p /anchore-ci/lib /home/circleci/project; \
+    sudo apt-get update && sudo apt-get upgrade; \
     sudo pip install --upgrade pip; \
     sudo pip install --upgrade tox; \
     sudo pip install --upgrade awscli; \
@@ -38,10 +39,10 @@ RUN set -ex; \
 RUN groupadd docker; \
     usermod -aG docker circleci
 
-# COPY --from=compiler /go/src/github.com/anchore/test-infra/src/test/anchore-engine/anchore-engine.test /usr/local/bin/anchore-engine.test
+COPY --from=compiler /go/src/github.com/anchore/test-infra/src/test/anchore-engine/anchore-engine.test /usr/local/bin/anchore-engine.test
 COPY scripts/ci_utils.sh /usr/local/bin/ci_utils.sh
 
-COPY scripts/run_ci_command /usr/local/bin/run_ci_command
+COPY scripts/run_make_command.sh /anchore-ci/run_make_command.sh
 COPY scripts/lib/* /anchore-ci/lib/
 
 USER circleci
