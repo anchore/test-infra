@@ -62,5 +62,5 @@ elif [[ -x "$1" ]] && [[ "$1" =~ ".sh" ]]; then
     source "$@"
 
 else
-    "$@"
+    exec "$@"
 fi
