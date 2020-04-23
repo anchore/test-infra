@@ -18,7 +18,7 @@ EOF
 }
 
 display_make_usage() {
-    printf "\nUse make from the project root directory to invoke pipeline tasks\n"
+    printf '\n%s\n' "Use make from the project root directory to invoke pipeline tasks"
     print_colorized WARN "usage: make < target >"
 }
 
@@ -43,7 +43,7 @@ fi
 # VERBOSE will trap all bash commands & print to screen, like using set -v but allows printing in color
 if [[ "${VERBOSE:-false}" =~ (true|TRUE|y|Y|1|2) ]]; then
     set -o functrace
-    trap 'printf "%s${INFO}+ $BASH_COMMAND${NORMAL}\n" >&2' DEBUG
+    trap 'command printf "%s${INFO}+ $BASH_COMMAND${NORMAL}\n" >&2' DEBUG
     if [[ "${VERBOSE:-false}" = "2" ]]; then
         set -x
     fi
