@@ -41,12 +41,15 @@ elif [[ "$1" =~ (help|-h) ]]; then
 fi
 
 # VERBOSE will trap all bash commands & print to screen, like using set -v but allows printing in color
-if [[ "${VERBOSE:-false}" =~ (true|TRUE|y|Y|1) ]]; then
+if [[ "${VERBOSE:-false}" =~ (true|TRUE|y|Y|1|2) ]]; then
     set -o functrace
     trap 'printf "%s${INFO}+ $BASH_COMMAND${NORMAL}\n" >&2' DEBUG
+    if [[ "${VERBOSE:-false}" = "2" ]]; then
+        set -x
+    fi
 fi
 
-if [[ "${CI:-false}" == "false" ]]; then
+if [[ "${CI}" == "false" ]]; then
     # Allow mounting & using docker socket with circleci user when running container locally
     sudo chown root:docker /var/run/docker.sock
     sudo chmod 770 /var/run/docker.sock
@@ -54,13 +57,11 @@ if [[ "${CI:-false}" == "false" ]]; then
 fi
 
 # Check if the first argument is a function or executable script
-if declare -f "$1" &> /dev/null; then
-    # run the task function/script with all arguments passed to it
-    "$@"
-
-elif [[ -x "$1" ]] && [[ "$1" =~ ".sh" ]]; then
+if [[ -x "$1" ]] && [[ "$1" =~ ".sh" ]]; then
+    print_colorized WARN "Running script: $1"
     source "$@"
 
 else
-    exec "$@"
+    print_colorized WARN "Running command: $@"
+    "$@"
 fi

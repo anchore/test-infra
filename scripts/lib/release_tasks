@@ -17,13 +17,13 @@ push_dev_image() {
     local latest_image="${DEV_IMAGE_REPO}:latest"
     local branch_image="${DEV_IMAGE_REPO}:${GIT_BRANCH}"
 
-    if [[ "${CI:-false}" == true ]]; then
+    if [[ "${CI}" == true ]]; then
         # Test for required environment variables exported in CI jobs
         test "${DOCKER_PASS:?'required environment variable'}"
         test "${DOCKER_USER:?'required environment variable'}"
         test "${RELEASE_BRANCHES:?'required environment variable'}"
 
-        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+        command echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
 
         print_colorized WARN "tagging and pushing image -- ${dev_image}"
         docker tag "${TEST_IMAGE_NAME}" "${dev_image}"
@@ -55,12 +55,12 @@ push_rc_image() {
     local dev_image="${DEV_IMAGE_REPO}:${COMMIT_SHA}"
     local rc_image="${DEV_IMAGE_REPO}:${GIT_TAG}"
 
-    if [[ "${CI:-false}" == true ]]; then
+    if [[ "${CI}" == true ]]; then
         # Test for required environment variables exported in CI jobs
         test "${DOCKER_PASS:?'required environment variable'}"
         test "${DOCKER_USER:?'required environment variable'}"
 
-        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+        command echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
 
         print_colorized WARN "pulling dev image for release candidate -- ${dev_image}"
         docker pull "${dev_image}"
@@ -82,13 +82,13 @@ push_prod_image_release() {
     local prod_image="${PROD_IMAGE_REPO}:${GIT_TAG}"
     local rc_image="${DEV_IMAGE_REPO}:$(git describe --match "${GIT_TAG}-rc*" --tags --abbrev=0)"
 
-    if [[ "${CI:-false}" == true ]]; then
+    if [[ "${CI}" == true ]]; then
         # Test for required environment variables exported in CI jobs
         test "${DOCKER_PASS:?'required environment variable'}"
         test "${DOCKER_USER:?'required environment variable'}"
         test "${LATEST_RELEASE_BRANCH:?'required environment variable'}"
 
-        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+        command echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
 
         print_colorized WARN "pulling RC image for release -- ${rc_image}"
         docker pull "${rc_image}"
@@ -117,12 +117,12 @@ push_prod_image_rebuild() {
     local dev_image="${DEV_IMAGE_REPO}:${COMMIT_SHA}"
     local rebuild_image="${PROD_IMAGE_REPO}:${GIT_TAG}"
 
-    if [[ "${CI:-false}" == true ]]; then
+    if [[ "${CI}" == true ]]; then
         # Test for required environment variables exported in CI jobs
         test "${DOCKER_PASS:?'required environment variable'}"
         test "${DOCKER_USER:?'required environment variable'}"
 
-        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+        command echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
 
         print_colorized WARN "pulling dev image for release candidate -- ${dev_image}"
         docker pull "${dev_image}"

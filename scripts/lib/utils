@@ -34,6 +34,10 @@ print_colorized() {
     printf "\n${!color_code}%s${NORMAL}\n" "${message}"
 }
 
+echo() {
+    print_colorized WARN "$@"
+}
+
 setup_colors() {
     # Setup shell colors for print statements
     # ${OK}=green, ${WARN}=yellow, ${INFO}=cyan, ${ERROR}=red, ${NORMAL}=normal

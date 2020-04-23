@@ -39,7 +39,7 @@ kind_load_image() {
             test "${DOCKER_PASS:?'required environment variable'}"
             test "${DOCKER_USER:?'required environment variable'}"
 
-            echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+            command echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
             docker pull "${IMAGE_NAME}"
         else
             print_colorized ERROR "Please pull ${IMAGE_NAME} & re-run tests"
@@ -67,7 +67,7 @@ get_local_e2e_image() {
         e2e_image="${DEV_IMAGE_REPO}:${COMMIT_SHA}"
     fi
 
-    echo "$e2e_image"
+    command echo "$e2e_image"
 }
 
 get_remote_e2e_image() {
@@ -86,7 +86,7 @@ get_remote_e2e_image() {
         e2e_image="${IMAGE_REPO}:latest"
     fi
 
-    echo "$e2e_image"
+    command echo "$e2e_image"
 }
 
 setup_e2e_tests() {
@@ -154,8 +154,12 @@ setup_e2e_tests() {
     else
         helm_install_log=$(helm install "${helm_deploy_name}" -f test/e2e/base-values.yaml --set anchoreEnterpriseGlobal.engineImage=${anchore_image} --set anchoreEnterpriseGlobal.image=${anchore_image} --set anchoreEnterpriseUi.image=${anchore_ui_image} stable/anchore-engine)
     fi
-    echo "${helm_install_log}" | head -n6
+    command echo "${helm_install_log}" | head -n6
 
     # Patch anchore-engine-api nodeport to the configured port thats mapped with kind to localhost:8228
     kubectl patch service "${helm_deploy_name}-anchore-engine-api" --type=json --patch '[{"op": "replace", "path": "/spec/ports/0/nodePort", "value":30028}]'
+    if [[ "${GIT_REPO}" == "anchore-on-prem-ui" ]]; then
+        # Patch anchore-enterprise-ui nodeport to the configured port thats mapped with kind to localhost:8080
+        kubectl patch service "${helm_deploy_name}-anchore-enterprise-ui" --type=json --patch '[{"op": "replace", "path": "/spec/ports/0/nodePort", "value":30080}]'
+    fi
 }
