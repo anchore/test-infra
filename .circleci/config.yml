@@ -1,33 +1,45 @@
 # CircleCI 2.1 configuration file
-#
 # Check https://circleci.com/docs/2.0/configuration-reference/ for more details
 #
+
 # Start circleci config
 version: 2.1
 jobs:
-  build:
+  build_image:
+    parameters:
+      image_name:
+       type: string
     docker:
     - image: docker:stable-git
+    environment:
+      IMAGE_NAME: docker.io/anchore/test-infra:<< parameters.image_name >>
+      TEST_IMAGE_NAME: docker.io/anchore/test-infra:dev-<< parameters.image_name >>
     steps:
     - setup_remote_docker
     - checkout
     - run: 
         name: build image
-        command: docker build -t docker.io/anchore/test-infra:dev .
+        command: docker build -t "${TEST_IMAGE_NAME}" -f Dockerfile.<< parameters.image_name >> .
     - run:
         name: push to dockerhub
         command: |
-          echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-          docker tag docker.io/anchore/test-infra:dev docker.io/anchore/test-infra:latest
-          docker push docker.io/anchore/test-infra:dev
-          if [[ "$CIRCLE_BRANCH" = "master" ]]; then
-              docker push docker.io/anchore/test-infra:latest
+          echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+          docker tag "${TEST_IMAGE_NAME}" "${IMAGE_NAME}"
+          docker push "${IMAGE_NAME}"
+          if [[ "${CIRCLE_BRANCH}" = "master" ]]; then
+              docker push "${IMAGE_NAME}"
           fi
 
 workflows:
   default_workflow:
     jobs:
-    - build:
+    - build_image:
+        name: python36
+        image_name: python36
+        context: dockerhub-prod
+    - build_image:
+        name: node12
+        image_name: node12
         context: dockerhub-prod
 
   nightly_build:
@@ -39,5 +51,11 @@ workflows:
               only:
                 - master
     jobs:
-    - build:
+    - build_image:
+        name: python36
+        image_name: python36
+        context: dockerhub-prod
+    - build_image:
+        name: node12
+        image_name: node12
         context: dockerhub-prod

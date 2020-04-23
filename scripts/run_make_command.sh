@@ -5,34 +5,27 @@ set -euo pipefail
 
 display_usage() {
     cat << EOF
-    This script is intended to be invoked from the root project Makefile, it is a simple wrapper
-    for calling pipeline task functions found in the following tasks libraries:
+    This script is intended to be invoked as a docker-entrypoint script for the anchore/test-infra images. 
+    It is a simple wrapper for invoking CI task scripts/binaries/functions inside the anchore/test-infra image.
+    All available task libraries can be found in the following directory of the anchore/test-infra image:
 
-        /anchore-ci/make/common_tasks
-        /anchore-ci/make/pipeline_tasks
+        /anchore-ci/lib
 
-    This script handles UX, sourcing tasks libraries, displaying usage, and verbose output
+    This script handles UX, sourcing libraries, displaying usage, and verbose output
 
-        usage: $0 < task_name >
+        usage: $0 < task_name or script/binary >
 EOF
 }
 
 display_make_usage() {
     printf "\nUse make from the project root directory to invoke pipeline tasks\n"
-    print_colorized WARN "usage: make < task_name >"
+    print_colorized WARN "usage: make < target >"
 }
 
 # source all CI commands & utility functions
 for f in /anchore-ci/lib/*; do
   source "$f"
 done
-
-if [[ "${CI:-false}" == "false" ]]; then
-    # Allow mounting & using docker socket with circleci user when running container locally
-    sudo chown root:docker /var/run/docker.sock
-    sudo chmod 770 /var/run/docker.sock
-    cd "${WORKING_DIRECTORY}"
-fi
 
 setup_colors
 
@@ -51,6 +44,13 @@ fi
 if [[ "${VERBOSE:-false}" =~ (true|TRUE|y|Y|1) ]]; then
     set -o functrace
     trap 'printf "%s${INFO}+ $BASH_COMMAND${NORMAL}\n" >&2' DEBUG
+fi
+
+if [[ "${CI:-false}" == "false" ]]; then
+    # Allow mounting & using docker socket with circleci user when running container locally
+    sudo chown root:docker /var/run/docker.sock
+    sudo chmod 770 /var/run/docker.sock
+    cd "${WORKING_DIRECTORY}"
 fi
 
 # Check if the first argument is a function or executable script

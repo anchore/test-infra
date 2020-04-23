@@ -1,4 +1,4 @@
-FROM circleci/python:3.6
+FROM circleci/node:12
 
 USER root
 
@@ -10,11 +10,9 @@ RUN set -ex; \
     groupadd docker; \
     usermod -aG docker circleci; \
     mkdir -p /anchore-ci/lib; \
-    sudo apt-get update && sudo apt-get upgrade; \
-    sudo pip install --upgrade pip; \
-    sudo pip install --upgrade tox; \
-    sudo pip install --upgrade awscli; \
-    sudo pip install --upgrade anchorecli
+    apt-get update -y && apt-get upgrade -y; \
+    apt-get install -y python-pip; \
+    pip install --upgrade anchorecli
 
 RUN set -ex; \
     arch=$(uname | tr A-Z a-z); \
