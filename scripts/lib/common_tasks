@@ -160,6 +160,6 @@ setup_e2e_tests() {
     kubectl patch service "${helm_deploy_name}-anchore-engine-api" --type=json --patch '[{"op": "replace", "path": "/spec/ports/0/nodePort", "value":30028}]'
     if [[ "${GIT_REPO}" == "anchore-on-prem-ui" ]]; then
         # Patch anchore-enterprise-ui nodeport to the configured port thats mapped with kind to localhost:8080
-        kubectl patch service "${helm_deploy_name}-anchore-enterprise-ui" --type=json --patch '[{"op": "replace", "path": "/spec/ports/0/nodePort", "value":30080}]'
+        kubectl patch service "${helm_deploy_name}-anchore-engine-enterprise-ui" --type=json --patch '[{"op": "replace", "path": "/spec/ports/0/nodePort", "value":30080}]'
     fi
 }
