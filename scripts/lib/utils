@@ -31,14 +31,14 @@ print_colorized() {
     # Prints a message using the specified color code (OK, WARN, INFO, ERROR, NORMAL)
     local color_code=$1
     local message=$2
-    command printf "\n${!color_code}%s${NORMAL}\n" "${message}"
+    builtin printf "\n${!color_code}%s${NORMAL}\n" "${message}"
 }
 
 printf() {
     if [[ "$#" -eq 1 ]]; then
         print_colorized WARN "$@"
     else
-        command printf "$@"
+        builtin printf "$@"
     fi
 }
 

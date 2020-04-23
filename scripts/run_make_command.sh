@@ -43,7 +43,7 @@ fi
 # VERBOSE will trap all bash commands & print to screen, like using set -v but allows printing in color
 if [[ "${VERBOSE:-false}" =~ (true|TRUE|y|Y|1|2) ]]; then
     set -o functrace
-    trap 'command printf "%s${INFO}+ $BASH_COMMAND${NORMAL}\n" >&2' DEBUG
+    trap '(printf "${INFO}%s${BASH_COMMAND}${NORMAL}\n" "+ ") >&2' DEBUG
     if [[ "${VERBOSE:-false}" = "2" ]]; then
         set -x
     fi
