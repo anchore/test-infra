@@ -23,7 +23,7 @@ push_dev_image() {
         test "${DOCKER_USER:?'required environment variable'}"
         test "${RELEASE_BRANCHES:?'required environment variable'}"
 
-        command echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
 
         print_colorized WARN "tagging and pushing image -- ${dev_image}"
         docker tag "${TEST_IMAGE_NAME}" "${dev_image}"
@@ -60,7 +60,7 @@ push_rc_image() {
         test "${DOCKER_PASS:?'required environment variable'}"
         test "${DOCKER_USER:?'required environment variable'}"
 
-        command echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
 
         print_colorized WARN "pulling dev image for release candidate -- ${dev_image}"
         docker pull "${dev_image}"
@@ -88,7 +88,7 @@ push_prod_image_release() {
         test "${DOCKER_USER:?'required environment variable'}"
         test "${LATEST_RELEASE_BRANCH:?'required environment variable'}"
 
-        command echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
 
         print_colorized WARN "pulling RC image for release -- ${rc_image}"
         docker pull "${rc_image}"
@@ -122,7 +122,7 @@ push_prod_image_rebuild() {
         test "${DOCKER_PASS:?'required environment variable'}"
         test "${DOCKER_USER:?'required environment variable'}"
 
-        command echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
 
         print_colorized WARN "pulling dev image for release candidate -- ${dev_image}"
         docker pull "${dev_image}"
