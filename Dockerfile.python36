@@ -14,6 +14,7 @@ RUN set -ex; \
     apt-get install -y xmlsec1 libxmlsec1-openssl; \
     pip install --upgrade pip; \
     pip install --upgrade tox; \
+    pip install --upgrade awscli; \
     pip install --upgrade anchorecli
 
 RUN set -ex; \
