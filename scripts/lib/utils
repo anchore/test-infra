@@ -51,3 +51,5 @@ setup_colors() {
         ERROR="\033[0;31m" \
         NORMAL="\033[0m"
 }
+
+setup_colors

@@ -27,8 +27,6 @@ for f in anchore-ci/lib/*; do
   source "$f"
 done
 
-setup_colors
-
 # Check for valid input arguments
 if [[ "$#" -eq 0 ]]; then
     print_colorized ERROR "ERROR - script requires input" >&2
@@ -47,13 +45,6 @@ if [[ "${VERBOSE:-false}" =~ (true|TRUE|y|Y|1|2) ]]; then
     if [[ "${VERBOSE:-false}" = "2" ]]; then
         set -x
     fi
-fi
-
-if [[ "${CI}" == "false" ]]; then
-    # Allow mounting & using docker socket with circleci user when running container locally
-    sudo chown root:docker /var/run/docker.sock
-    sudo chmod 770 /var/run/docker.sock
-    cd "${WORKING_DIRECTORY}"
 fi
 
 # Check if the first argument is a function or executable script
