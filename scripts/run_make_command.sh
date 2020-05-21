@@ -23,7 +23,7 @@ display_make_usage() {
 }
 
 # source all CI commands & utility functions
-for f in /anchore-ci/lib/*; do
+for f in anchore-ci/lib/*; do
   source "$f"
 done
 
