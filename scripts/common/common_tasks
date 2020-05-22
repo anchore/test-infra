@@ -246,6 +246,7 @@ install_cluster_deps() {
     fi
 
     print_colorized WARN "Finished installing dependencies to run local k8s cluster."
+}
 
 cluster-up() {
     local CLUSTER_NAME="${1:?'Missing required parameter: CLUSTER_NAME'}"
@@ -282,7 +283,7 @@ kind_load_image() {
             echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
             docker pull "${IMAGE_NAME}"
         else
-           print_colorized ERROR "Please pull ${IMAGE_NAME} & re-run tests"
+            print_colorized ERROR "Please pull ${IMAGE_NAME} & re-run tests"
             exit 1
         fi
         print_colorized WARN "Using remote image for e2e testing -- ${IMAGE_NAME}"
