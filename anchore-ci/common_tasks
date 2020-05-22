@@ -212,7 +212,7 @@ push-prod-image-rebuild() {
     fi
 }
 
-install_cluster_deps() {
+install-cluster-deps() {
     local VENV="${1:?'Missing required parameter: VENV'}"
 
     print_colorized INFO "Installing dependencies to run local k8s cluster."
@@ -270,28 +270,4 @@ cluster-down() {
     local CLUSTER_NAME="${1:?'Missing required parameter: CLUSTER_NAME'}"
 
     kind delete cluster --name "${CLUSTER_NAME}"
-}
-
-kind_load_image() {
-    local CLUSTER_NAME="${1:?'required parameter'}"
-    local IMAGE_NAME="${2:?'required parameter'}"
-
-    if docker inspect "${IMAGE_NAME}" &> /dev/null; then
-        print_colorized WARN "Using local image: ${IMAGE_NAME}"
-        kind load docker-image "${IMAGE_NAME}" --name "${CLUSTER_NAME}"
-    else
-        # Test for required environment variables from CI system before pulling image
-        if [[ "${CI}" == true ]]; then
-            test "${DOCKER_USER:?'Missing required environment variable: DOCKER_USER'}"
-            test "${DOCKER_PASS:?'Missing required environment variable: DOCKER_PASS'}"
-
-            echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
-            docker pull "${IMAGE_NAME}"
-        else
-            print_colorized ERROR "Please pull ${IMAGE_NAME} & re-run tests"
-            exit 1
-        fi
-        print_colorized WARN "Using remote image for e2e testing -- ${IMAGE_NAME}"
-        kind load docker-image "${IMAGE_NAME}" --name "${CLUSTER_NAME}"
-    fi
 }
