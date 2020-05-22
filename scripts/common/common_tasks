@@ -1,0 +1,403 @@
+#!/usr/bin/env bash
+
+############################################################
+# Common CI tasks. These are intended to be reusable across
+# projects, and easily overriden.
+############################################################
+
+clean() {
+  TEST_IMAGE_NAME="${1:?'Missing required parameter: TEST_IMAGE_NAME.'}"
+
+  print_colorized WARN "Deleting virtualenv, cache, build and testing temp data."; echo
+
+  continue_prompt
+  rm -rf venv ./*.egg-info dist build .tox
+  find . \( -type f -name "*.py[co]" -o -type d -name "__pycache__" \) -delete
+
+  print_colorized WARN "Deleting Docker image '${TEST_IMAGE_NAME}.'"; echo
+
+  continue_prompt
+  docker rmi "${TEST_IMAGE_NAME}"
+
+  print_colorized INFO "Finished clean."; echo
+}
+
+lint() {
+    PYTHON="${1:?'Missing required parameter: PYTHON'}"
+
+    hash tox || "${PYTHON}" -m pip install -q tox
+
+    print_colorized INFO "Linting code."; echo
+
+    tox -e flake8
+
+    print_colorized INFO "Finished linting code."; echo
+}
+
+test-unit() {
+    PYTHON="${1:?'Missing required parameter: PYTHON'}"
+
+    # Declare default tox envs, but allow TOX_ENV to override
+    default_tox_envs="py27 py36"
+    tox_env="${TOX_ENV:-$default_tox_envs}"
+
+    hash tox || "${PYTHON}" -m pip install -q tox
+
+    print_colorized INFO "Running unit tests."; echo
+
+    for e in $(echo "${tox_env}"); do
+        print_colorized INFO "Running unit tests using tox env $e."
+        tox -e "$e" --result-json .tox/unit-test-report.log
+        print_colorized INFO "Finished running unit tests using tox env $e."
+    done
+
+    print_colorized INFO "Finished running unit tests."; echo
+}
+
+test-functional() {
+    PYTHON="${1:?'Missing required parameter: PYTHON'}"
+
+    # Declare default tox envs, but allow TOX_ENV to override
+    default_tox_envs="py36-anchore_latest py36-anchore_0.6.0 py36-anchore_0.5.1"
+    tox_env="${TOX_ENV:-$default_tox_envs}"
+
+    hash tox || "${PYTHON}" -m pip install -q tox
+
+    print_colorized INFO "Running functional tests."; echo
+
+    for e in $(echo "${tox_env}"); do
+        print_colorized INFO "Running functional tests using tox env $e."
+        tox -c test/functional/tox.ini -e "$e" --result-json .tox/functional-test-report.log
+        print_colorized INFO "Finished running functional tests using tox env $e."
+    done
+
+    print_colorized INFO "Finished running functional tests."; echo
+}
+
+push-dev-image() {
+    COMMIT_SHA="${1:?'Missing required parameter: COMMIT_SHA'}"
+    DEV_IMAGE_REPO="${2:?'Missing required parameter: DEV_IMAGE_REPO'}"
+    GIT_BRANCH="${3:?'Missing required parameter: GIT_BRANCH'}"
+    TEST_IMAGE_NAME="${4:?'Missing required parameter: TEST_IMAGE_NAME'}"
+
+    dev_image="${DEV_IMAGE_REPO}:${COMMIT_SHA}"
+    latest_image="${DEV_IMAGE_REPO}:latest"
+    branch_image="${DEV_IMAGE_REPO}:${GIT_BRANCH}"
+
+    print_colorized INFO "Tagging and pushing dev image."; echo
+
+    if [[ "${CI:-false}" == true ]]; then
+        # Test for required environment variables exported in CI jobs
+        test "${DOCKER_USER:?'Missing required env variable: DOCKER_USER'}"
+        test "${DOCKER_PASS:?'Missing required env variable: DOCKER_PASS'}"
+        test "${RELEASE_BRANCHES:?'Missing required env variable: RELEASE_BRANCHES'}"
+
+        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+
+        print_colorized INFO "Tagging and pushing dev image ${dev_image}."; echo
+        docker tag "${TEST_IMAGE_NAME}" "${dev_image}"
+        docker push "${dev_image}"
+
+        if [[ "${GIT_BRANCH}" == 'master' ]]; then
+            print_colorized INFO "Tagging and pushing image ${latest_image}."; echo
+            docker tag "${dev_image}" "${latest_image}"
+            docker push "${latest_image}"
+
+        elif [[ "${RELEASE_BRANCHES}" == *"${GIT_BRANCH}"* ]]; then
+            print_colorized INFO "Tagging and pushing image ${branch_image}."; echo
+            docker tag "${dev_image}" "${branch_image}"
+            docker push "${branch_image}"
+        fi
+    else
+        print_colorized INFO "Tagging and pushing image ${dev_image}."; echo
+        continue_prompt
+        docker tag "${TEST_IMAGE_NAME}" "${dev_image}"
+        docker push "${dev_image}"
+    fi
+
+    print_colorized INFO "Finished tagging and pushing dev image."; echo
+}
+
+push-rc-image() {
+    DEV_IMAGE_REPO="${1:?'required parameter'}"
+    GIT_TAG="${2:?'required parameter'}"
+    TEST_IMAGE_NAME="${3:?'required parameter'}"
+
+    print_colorized WARN "Tagging and pushing RC image."; echo
+
+    rc_image="${DEV_IMAGE_REPO}:${GIT_TAG}"
+    rc_latest_image="${DEV_IMAGE_REPO}:rc"
+
+    # Test for required environment variables from CI system before pushing
+    if [[ "${CI:-false}" == true ]]; then
+        test "${DOCKER_PASS:?'Missing required env variable: DOCKER_PASS'}"
+        test "${DOCKER_USER:?'Missing required env variable: DOCKER_USER'}"
+
+        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+
+        print_colorized WARN "Tagging and pushing image ${rc_image}."; echo
+        docker tag "${TEST_IMAGE_NAME}" "${rc_image}"
+        docker push "${rc_image}"
+
+        print_colorized WARN "Tagging and pushing image ${rc_latest_image}."; echo
+        docker tag "${rc_image}" "${rc_latest_image}"
+        docker push "${rc_latest_image}"
+    else
+        print_colorized ERROR "RC images can only be pushed in the CI environment."; echo
+    fi
+}
+
+push-prod-image-release() {
+    DEV_IMAGE_REPO="${1:?'Missing required parameter: DEV_IMAGE_REPO'}"
+    GIT_BRANCH="${2:-'Missing required parameter: GIT_BRANCH'}"
+    GIT_TAG="${3:?'Missing required parameter: GIT_TAG'}"
+
+    print_colorized WARN "Tagging and pushing production image."; echo
+
+    latest_image="${PROD_IMAGE_REPO}:latest"
+    prod_image="${PROD_IMAGE_REPO}:${GIT_TAG}"
+    rc_image="${DEV_IMAGE_REPO}:$(git describe --match "${GIT_TAG}-rc*" --tags --abbrev=0)"
+
+    # Test for required environment variables from CI system before pushing
+    if [[ "${CI:-false}" == true ]]; then
+        test "${DOCKER_USER:?'Missing required environment variable: DOCKER_USER'}"
+        test "${DOCKER_PASS:?'Missing required environment variable: DOCKER_PASS'}"
+        test "${LATEST_RELEASE_BRANCH:?'Missing required environment variable: LATEST_RELEASE_BRANCH'}"
+        test "${PROD_IMAGE_REPO:?'Missing required environment variable: PROD_IMAGE_REPO'}"
+
+        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+
+        print_colorized WARN "Pulling RC image for release ${rc_image}."; echo
+        docker pull "${rc_image}"
+
+        print_colorized WARN "Tagging and pushing production image ${prod_image}."; echo
+        docker tag "${rc_image}" "${prod_image}"
+        docker push "${prod_image}"
+
+        if [[ "${GIT_BRANCH}" == "${LATEST_RELEASE_BRANCH}" ]] || [[ "${GIT_BRANCH}" == "master" ]]; then
+            print_colorized WARN "Tagging and pushing production image ${latest_image}."; echo
+            docker tag "${prod_image}" "${latest_image}"
+            docker push "${latest_image}"
+        fi
+    else
+        print_colorized ERROR "Production images can only be pushed in the CI environment."; echo
+    fi
+}
+
+push-prod-image-rebuild() {
+    COMMIT_SHA="${1:?'Missing required parameter: COMMIT_SHA'}"
+    DEV_IMAGE_REPO="${2:?'Missing required parameter: DEV_IMAGE_REPO'}"
+    GIT_TAG="${3:?'Missing required parameter: GIT_TAG'}"
+
+    print_colorized WARN "Rebuilding image '${TEST_IMAGE_NAME}'."; echo
+
+    dev_image="${DEV_IMAGE_REPO}:${COMMIT_SHA}"
+    rebuild_image="${PROD_IMAGE_REPO}:${GIT_TAG}"
+
+    # Test for required environment variables from CI system
+    if [[ "${CI:-false}" == true ]]; then
+        test "${DOCKER_USER:?'Missing required env variable: DOCKER_USER'}"
+        test "${DOCKER_PASS:?'Missing required env variable: DOCKER_PASS'}"
+        test "${PROD_IMAGE_REPO:?'Missing required env variable: PROD_IMAGE_REPO'}"
+
+        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+
+        print_colorized WARN "Pulling dev image for release candidate ${dev_image}."; echo
+        docker pull "${dev_image}"
+
+        print_colorized WARN "Tagging and pushing image ${rebuild_image}."; echo
+        docker tag "${dev_image}" "${rebuild_image}"
+        docker push "${rebuild_image}"
+    else
+        print_colorized ERROR "Production images can only be pushed in the CI environment."; echo
+    fi
+}
+
+install_cluster_deps() {
+    local VENV="${1:?'Missing required parameter: VENV'}"
+
+    print_colorized WARN "Installing dependencies to run local k8s cluster."
+
+    local arch
+    local kind_version="v0.7.0"
+    local kubectl_version="v1.15.0"
+    local helm_version="v3.1.1"
+
+    arch="$(uname | tr '[:upper:]' '[:lower:]')"
+
+    activate_venv "${VENV}"
+
+    if [[ ! -x "${VENV}/bin/kind" ]]; then
+        print_colorized WARN "Installing kind"
+        curl -qsSLo "${VENV}/bin/kind" "https://github.com/kubernetes-sigs/kind/releases/download/${kind_version}/kind-${arch}-amd64"
+        chmod +x "${VENV}/bin/kind"
+    fi
+    if [[ ! -x "${VENV}/bin/helm" ]]; then
+        print_colorized WARN "Installing helm"
+        curl -sSL "https://get.helm.sh/helm-${helm_version}-${arch}-amd64.tar.gz" | tar xzf - -C "${VENV}/bin" --strip-components=1 "${arch}-amd64/helm"
+        chmod +x "${VENV}/bin/helm"
+    fi
+    if [[ ! -x "${VENV}/bin/kubectl" ]]; then
+        print_colorized WARN "Installing kubectl"
+        curl -sSLo "${VENV}/bin/kubectl" "https://storage.googleapis.com/kubernetes-release/release/${kubectl_version}/bin/${arch}/amd64/kubectl"
+        chmod +x "${VENV}/bin/kubectl"
+    fi
+
+    print_colorized WARN "Finished installing dependencies to run local k8s cluster."
+
+cluster-up() {
+    local CLUSTER_NAME="${1:?'Missing required parameter: CLUSTER_NAME'}"
+    local CLUSTER_CONFIG="${2:?'Missing required parameter: CLUSTER_CONFIG'}"
+    local KUBERNETES_VERSION="${3:?'Missing required parameter: KUBERNETES_VERSION'}"
+
+    local kind_node_image_tag="v${KUBERNETES_VERSION}"
+
+    # if a kind cluster named e2e-testing is running export config, otherwise create a new cluster
+    if ! kind get clusters | grep "${CLUSTER_NAME}"; then
+        kind create cluster --name "${CLUSTER_NAME}" --config "${CLUSTER_CONFIG}" --image "kindest/node:${kind_node_image_tag}" --wait 60s
+    fi
+}
+
+cluster-down() {
+    local CLUSTER_NAME="${1:?'Missing required parameter: CLUSTER_NAME'}"
+
+    kind delete cluster --name "${CLUSTER_NAME}"
+}
+
+kind_load_image() {
+    local CLUSTER_NAME="${1:?'required parameter'}"
+    local IMAGE_NAME="${2:?'required parameter'}"
+
+    if docker inspect "${IMAGE_NAME}" &> /dev/null; then
+        print_colorized WARN "Using local image: ${IMAGE_NAME}"
+        kind load docker-image "${IMAGE_NAME}" --name "${CLUSTER_NAME}"
+    else
+        # Test for required environment variables from CI system before pulling image
+        if [[ "${CI}" == true ]]; then
+            test "${DOCKER_USER:?'Missing required environment variable: DOCKER_USER'}"
+            test "${DOCKER_PASS:?'Missing required environment variable: DOCKER_PASS'}"
+
+            echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+            docker pull "${IMAGE_NAME}"
+        else
+           print_colorized ERROR "Please pull ${IMAGE_NAME} & re-run tests"
+            exit 1
+        fi
+        print_colorized WARN "Using remote image for e2e testing -- ${IMAGE_NAME}"
+        kind load docker-image "${IMAGE_NAME}" --name "${CLUSTER_NAME}"
+    fi
+}
+
+get_local_e2e_image() {
+    local COMMIT_SHA="${1:?'required parameter'}"
+    local DEV_IMAGE_REPO="${2:?'required parameter'}"
+    local GIT_TAG="${3:?'required parameter'}"
+    local TEST_IMAGE_NAME="${4:?'required parameter'}"
+
+    local e2e_image=''
+
+    if docker inspect "${TEST_IMAGE_NAME}" &> /dev/null; then
+        e2e_image="${TEST_IMAGE_NAME}"
+    elif [[ "${GIT_TAG}" =~ ^v[0-9]+(\.[0-9]+)*$ ]]; then
+        # get the latest rc git tag for this semver & use it for the image tag
+        e2e_image="${DEV_IMAGE_REPO}:$(git describe --match "${GIT_TAG}-rc*" --tags --abbrev=0)"
+    else
+        e2e_image="${DEV_IMAGE_REPO}:${COMMIT_SHA}"
+    fi
+
+    echo "$e2e_image"
+}
+
+get_remote_e2e_image() {
+    local GIT_BRANCH="${1:?'required parameter'}"
+    local GIT_REPO="${2:?'required parameter'}"
+    local GIT_TAG="${3:?'required parameter'}"
+    local IMAGE_REPO="${4:?'required parameter'}"
+
+    local e2e_image=''
+
+    if DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "${IMAGE_REPO}:${GIT_TAG}" &> /dev/null; then
+        e2e_image="${IMAGE_REPO}:${GIT_TAG}"
+    elif DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "${IMAGE_REPO}:${GIT_BRANCH}" &> /dev/null; then
+        e2e_image="${IMAGE_REPO}:${GIT_BRANCH}"
+    else
+        e2e_image="${IMAGE_REPO}:latest"
+    fi
+
+    echo "$e2e_image"
+}
+
+setup_e2e_tests() {
+    local CLUSTER_NAME="${1:?'Missing required parameter: CLUSTER_NAME'}"
+    local COMMIT_SHA="${2:?'Missing required parameter: COMMIT_SHA'}"
+    local DEV_IMAGE_REPO="${3:?'Missing required parameter: DEV_IMAGE_REPO'}"
+    local GIT_BRANCH="${4:?'Missing required parameter: GIT_BRANCH'}"
+    local GIT_REPO="${5:?'Missing required parameter: GIT_REPO'}"
+    local GIT_TAG="${6:?'Missing required parameter: GIT_TAG'}"
+    local TEST_IMAGE_NAME="${7:?'Missing required parameter: TEST_IMAGE_NAME'}"
+
+    local helm_deploy_name="${GIT_REPO}-e2e-${RANDOM:0:5}"
+    local helm_install_log=''
+    local anchore_image=''
+    local anchore_ui_image=''
+
+    kind export kubeconfig --name "${CLUSTER_NAME}"
+
+    # Test for required environment variables from CI system
+    if [[ "${CI}" == true ]]; then
+        test "${DOCKER_USER:?'Missing required environment variable: DOCKER_USER'}"
+        test "${DOCKER_PASS:?'Missing required environment variable: DOCKER_PASS'}"
+
+        if [[ "${GIT_REPO}" =~ ("enterprise"|"anchore-on-prem-ui") ]]; then
+            test "${ANCHORE_LICENSE:?'required environment variable'}"
+            # create anchore enterprise license secret using base64 encoded license file in $ANCHORE_LICENSE
+            printf '%s' "${ANCHORE_LICENSE}" | base64 --decode > license.yaml
+        fi
+
+        # Create k8s secret using $DOCKER_USER & $DOCKER_PASS and set as default imagePullCreds
+        kubectl create secret docker-registry anchore-enterprise-pullcreds --docker-server=docker.io --docker-username="${DOCKER_USER}" --docker-password="${DOCKER_PASS}" --docker-email=anchoreci@anchore.com
+        kubectl patch serviceaccount default --type=merge --patch '{"imagePullSecrets":[{"name": "anchore-enterprise-pullcreds"}]}'
+    fi
+
+    helm repo add stable https://kubernetes-charts.storage.googleapis.com
+
+    # Determine whether this is anchore-engine or anchore enterprise 
+    if [[ "${GIT_REPO}" =~ ("enterprise"|"anchore-engine") ]]; then
+        anchore_image="$(get_local_e2e_image "${COMMIT_SHA}" "${DEV_IMAGE_REPO}" "${GIT_TAG}" "${TEST_IMAGE_NAME}")"
+        kind_load_image "${CLUSTER_NAME}" "${anchore_image}"
+
+        if [[ "${GIT_REPO}" =~ "enterprise" ]]; then
+            anchore_ui_image="$(get_remote_e2e_image "${GIT_BRANCH}" "${GIT_REPO}" "${GIT_TAG}" anchore/anchore-on-prem-ui-dev)"
+            kind_load_image "${CLUSTER_NAME}" "${anchore_ui_image}"
+        fi
+    fi
+
+    # Determine whether this is anchore-on-prem-ui 
+    if [[ "${GIT_REPO}" == "anchore-on-prem-ui" ]]; then
+        anchore_image="$(get_remote_e2e_image "${GIT_BRANCH}" "${GIT_REPO}" "${GIT_TAG}" anchore/enterprise-dev)"
+        kind_load_image "${CLUSTER_NAME}" "${anchore_image}"
+
+        anchore_ui_image="$(get_local_e2e_image "${COMMIT_SHA}" "${DEV_IMAGE_REPO}" "${GIT_TAG}" "${TEST_IMAGE_NAME}")"
+        kind_load_image "${CLUSTER_NAME}" "${anchore_ui_image}"
+    fi
+
+    if [[ "${GIT_REPO}" =~ ("enterprise"|"anchore-on-prem-ui") ]]; then
+        if [[ -f license.yaml ]]; then
+            kubectl create secret generic anchore-enterprise-license --from-file=license.yaml=license.yaml || true
+        else
+            print_colorized ERROR "ERROR - a valid anchore license.yaml file must exist in the project directory" && exit 1
+        fi
+    fi
+
+    helm_install_log=$(helm install "${helm_deploy_name}" -f test/e2e/base-values.yaml --set anchoreEnterpriseGlobal.engineImage=${anchore_image} --set anchoreEnterpriseGlobal.image=${anchore_image} --set anchoreEnterpriseUi.image=${anchore_ui_image} stable/anchore-engine)
+
+    echo "${helm_install_log}" | head -n6
+
+    # Patch anchore-engine-api nodeport to the configured port thats mapped with kind to localhost:8228
+    kubectl patch service "${helm_deploy_name}-anchore-engine-api" --type=json --patch '[{"op": "replace", "path": "/spec/ports/0/nodePort", "value":30028}]'
+
+    if [[ "${GIT_REPO}" == "anchore-on-prem-ui" ]]; then
+        # Patch anchore-enterprise-ui nodeport to the configured port thats mapped with kind to localhost:8080
+        kubectl patch service "${helm_deploy_name}-anchore-engine-enterprise-ui" --type=json --patch '[{"op": "replace", "path": "/spec/ports/0/nodePort", "value":30080}]'
+    fi
+}

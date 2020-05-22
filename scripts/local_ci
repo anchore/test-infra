@@ -3,9 +3,9 @@
 # Fail on any errors, including in pipelines and when variables are missing
 set -euo pipefail
 
-display_usage() {
+usage() {
     cat << EOF
-    This script is intended to be invoked as a docker-entrypoint script for the anchore/test-infra images. 
+    This script is intended to be invoked as a docker-entrypoint script for the anchore/test-infra images.
     It is a simple wrapper for invoking CI task scripts/binaries/functions inside the anchore/test-infra image.
     All available task libraries can be found in the following directory of the anchore/test-infra image:
 
@@ -17,28 +17,30 @@ display_usage() {
 EOF
 }
 
-display_make_usage() {
+make_usage() {
     printf '\n%s\n' "Use make from the project root directory to invoke pipeline tasks"
     print_colorized WARN "usage: make < target >"
 }
 
-# source all CI commands & utility functions
-for f in anchore-ci/lib/*; do
+# Source all CI commands & utility functions
+common_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
+for f in ${common_dir}/*; do
   source "$f"
 done
 
 # Check for valid input arguments
 if [[ "$#" -eq 0 ]]; then
     print_colorized ERROR "ERROR - script requires input" >&2
-    display_usage
+    usage
     exit 1
 
 elif [[ "$1" =~ (help|-h) ]]; then
-    display_make_usage
+    make_usage
     exit
 fi
 
-# VERBOSE will trap all bash commands & print to screen, like using set -v but allows printing in color
+# VERBOSE will trap all bash commands & print to screen, like using
+# set -v but allows printing in color
 if [[ "${VERBOSE:-false}" =~ (true|TRUE|y|Y|1|2) ]]; then
     set -o functrace
     trap '(printf "${INFO}%s${BASH_COMMAND}${NORMAL}\n" "+ ") >&2' DEBUG
@@ -47,12 +49,18 @@ if [[ "${VERBOSE:-false}" =~ (true|TRUE|y|Y|1|2) ]]; then
     fi
 fi
 
-# Check if the first argument is a function or executable script
-if [[ -x "$1" ]] && [[ "$1" =~ ".sh" ]]; then
-    print_colorized WARN "Running script: $1"
-    source "$@"
-
+# See if there's a local task overriding the task we're trying to execute.
+# If there is, execute that instead by replacing args.
+task="scripts/ci/$1"
+if [[ -f ${task} && -x ${task} ]]; then
+  bash_debug "Running overridden ${1}."
+  args=("$task" "${@:2}")
 else
-    print_colorized WARN "Running command: $@"
-    "$@"
+  bash_debug "Running shared ${1}."
+  args="$@"
 fi
+
+# Turn things over to the shared or overridden function
+bash_debug "Executing ${args[0]}"
+${args[@]}
+

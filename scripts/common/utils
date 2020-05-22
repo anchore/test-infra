@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 
-#########################################################
-###   COMMON UTILITY FUNCTIONS - ALPHABETICAL ORDER   ###
-#########################################################
+#############################################################
+### Common utility functions
+#############################################################
+
+export BASH_DEBUG="yes"
+
+bash_debug() {
+  if [[ -n "$BASH_DEBUG" ]]; then echo "$1"; fi
+}
 
 activate_venv() {
     local VENV="${1:?'required parameter'}"
@@ -27,11 +33,11 @@ continue_prompt() {
     done
 }
 
+# Print message using the specified color code (OK, WARN, INFO, ERROR, NORMAL)
 print_colorized() {
-    # Prints a message using the specified color code (OK, WARN, INFO, ERROR, NORMAL)
     local color_code=$1
     local message=$2
-    builtin printf "\n${!color_code}%s${NORMAL}\n" "${message}"
+    builtin printf "\n${!color_code}%s${RESET}\n" "${message}"
 }
 
 printf() {
@@ -42,14 +48,17 @@ printf() {
     fi
 }
 
+# Setup shell colors for print statements
+# OK: green
+# INFO: cyan
+# WARN: yellow
+# ERROR: red
 setup_colors() {
-    # Setup shell colors for print statements
-    # ${OK}=green, ${WARN}=yellow, ${INFO}=cyan, ${ERROR}=red, ${NORMAL}=normal
     export OK="\033[0;32m" \
-        WARN="\033[0;33m" \
         INFO="\033[0;36m" \
+        WARN="\033[0;33m" \
         ERROR="\033[0;31m" \
-        NORMAL="\033[0m"
+        RESET="\033[0m"
 }
 
 setup_colors
