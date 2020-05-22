@@ -11,14 +11,14 @@ bash_debug() {
 }
 
 activate_venv() {
-    local VENV="${1:?'required parameter'}"
+    local VENV="${1:?'Missing required parameter: VENV'}"
 
     # activate virtual environment if it is available
     if [[ -f "${VENV}/bin/activate" ]]; then
         source "${VENV}/bin/activate"
-        print_colorized WARN "using virtual environment - ${VENV}"
+        print_colorized INFO "Using virtual environment ${VENV}."
     else
-        print_colorized WARN "virtual environment - ${VENV} - not found"
+        print_colorized INFO "Uirtual environment ${VENV} not found."
     fi
 }
 

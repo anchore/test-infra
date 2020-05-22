@@ -3,18 +3,57 @@
 # Fail on any errors, including in pipelines and when variables are missing
 set -euo pipefail
 
+# Source CI utility functions and shared tasks
+source ./utils
+source ./common_tasks
+
 usage() {
+		builtin printf ${WARN}
     cat << EOF
-    This script is intended to be invoked as a docker-entrypoint script for the anchore/test-infra images.
-    It is a simple wrapper for invoking CI task scripts/binaries/functions inside the anchore/test-infra image.
-    All available task libraries can be found in the following directory of the anchore/test-infra image:
 
-        /anchore-ci/lib
+    This script is a simple wrapper or entry point for local CI tasks.  It provides a set of shared tasks
+    such as linting and running tests, and allows any of them to be overridden by local files of the same
+    name in ./scripts/ci/
 
-    This script handles UX, sourcing libraries, displaying usage, and verbose output
-
-        usage: $0 < task_name or script/binary >
+    It is expected that the anchore-ci directory in this repository is cloned or copied into your project.
+    For example, given the make target:
 EOF
+
+    builtin printf ${INFO}
+    cat << EOF
+
+        anchore-ci: ## Fetch test artifacts for local CI
+            git clone \$(TEST_INFRA_REPO_URL) /tmp/test-infra
+            rm -rf ./anchore-ci && mv /tmp/test-infra/anchore-ci . && rm -rf /tmp/test-infra
+EOF
+
+		builtin printf ${WARN}
+    cat << EOF
+
+    Your local makefile can include this as a dependency in other targets.  You can then invoke the
+    shared tasks, e.g.:
+EOF
+
+    builtin printf ${INFO}
+    cat << EOF
+
+        clean: anchore-ci ## Clean up the project directory and delete dev image
+            @\$(CI_CMD) clean \$(TEST_IMAGE_NAME)
+EOF
+
+		builtin printf ${WARN}
+    cat << EOF
+
+    Shared tasks can be found in the file \`common_tasks\`.
+
+    The following shared tasks are currently supplied:
+
+EOF
+    builtin printf ${INFO}
+    # Tasks w/underscores are 'helpers', not really meant to be overriden, so don't show them
+    cp ./common_tasks /tmp; echo "declare -F" >> /tmp/common_tasks; eval /tmp/common_tasks | grep -v '_' | awk '{print "\t" $3}'
+		builtin printf ${RESET}
+    echo
 }
 
 make_usage() {
@@ -22,15 +61,9 @@ make_usage() {
     print_colorized WARN "usage: make < target >"
 }
 
-# Source all CI commands & utility functions
-common_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common"
-for f in ${common_dir}/*; do
-  source "$f"
-done
-
 # Check for valid input arguments
 if [[ "$#" -eq 0 ]]; then
-    print_colorized ERROR "ERROR - script requires input" >&2
+    #print_colorized ERROR "ERROR local_ci requires input." >&2
     usage
     exit 1
 
@@ -53,10 +86,10 @@ fi
 # If there is, execute that instead by replacing args.
 task="scripts/ci/$1"
 if [[ -f ${task} && -x ${task} ]]; then
-  bash_debug "Running overridden ${1}."
+  bash_debug "Running overridden task ${1}."
   args=("$task" "${@:2}")
 else
-  bash_debug "Running shared ${1}."
+  bash_debug "Running shared task ${1}."
   args="$@"
 fi
 
