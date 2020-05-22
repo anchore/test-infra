@@ -3,9 +3,11 @@
 # Fail on any errors, including in pipelines and when variables are missing
 set -euo pipefail
 
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
 # Source CI utility functions and shared tasks
-source ./utils
-source ./common_tasks
+source "${script_dir}/utils"
+source "${script_dir}/common_tasks"
 
 usage() {
 		builtin printf ${WARN}
@@ -51,7 +53,7 @@ EOF
 EOF
     builtin printf ${INFO}
     # Tasks w/underscores are 'helpers', not really meant to be overriden, so don't show them
-    cp ./common_tasks /tmp; echo "declare -F" >> /tmp/common_tasks; eval /tmp/common_tasks | grep -v '_' | awk '{print "\t" $3}'
+    cp "${script_dir}/common_tasks" /tmp; echo "declare -F" >> /tmp/common_tasks; eval /tmp/common_tasks | grep -v '_' | awk '{print "\t" $3}'
 		builtin printf ${RESET}
     echo
 }
