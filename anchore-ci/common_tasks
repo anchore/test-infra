@@ -23,9 +23,8 @@ clean() {
 }
 
 lint() {
-    PYTHON="${1:?'Missing required parameter: PYTHON'}"
 
-    hash tox || "${PYTHON}" -m pip install -q tox
+    hash tox || python -m pip install -q tox
 
     print_colorized INFO "Linting code."; echo
 
@@ -35,13 +34,11 @@ lint() {
 }
 
 test-unit() {
-    PYTHON="${1:?'Missing required parameter: PYTHON'}"
-
     # Declare default tox envs, but allow TOX_ENV to override
     default_tox_envs="py27 py36"
     tox_env="${TOX_ENV:-$default_tox_envs}"
 
-    hash tox || "${PYTHON}" -m pip install -q tox
+    hash tox || python -m pip install -q tox
 
     print_colorized INFO "Running unit tests."; echo
 
@@ -55,13 +52,11 @@ test-unit() {
 }
 
 test-functional() {
-    PYTHON="${1:?'Missing required parameter: PYTHON'}"
-
     # Declare default tox envs, but allow TOX_ENV to override
     default_tox_envs="py36-anchore_latest py36-anchore_0.6.0 py36-anchore_0.5.1"
     tox_env="${TOX_ENV:-$default_tox_envs}"
 
-    hash tox || "${PYTHON}" -m pip install -q tox
+    hash tox || python -m pip install -q tox
 
     print_colorized INFO "Running functional tests."; echo
 
@@ -224,8 +219,6 @@ install-cluster-deps() {
 
     arch="$(uname | tr '[:upper:]' '[:lower:]')"
 
-    activate_venv "${VENV}"
-
     if [[ ! -x "${VENV}/bin/kind" ]]; then
         print_colorized WARN "Installing kind"
         curl -qsSLo "${VENV}/bin/kind" "https://github.com/kubernetes-sigs/kind/releases/download/${kind_version}/kind-${arch}-amd64"
@@ -254,14 +247,11 @@ install-cluster-deps() {
 }
 
 cluster-up() {
-    local VENV="${1:?'Missing required parameter: VENV'}"
     local CLUSTER_NAME="${1:?'Missing required parameter: CLUSTER_NAME'}"
     local CLUSTER_CONFIG="${2:?'Missing required parameter: CLUSTER_CONFIG'}"
     local KUBERNETES_VERSION="${3:?'Missing required parameter: KUBERNETES_VERSION'}"
 
     local kind_node_image_tag="v${KUBERNETES_VERSION}"
-
-    activate_venv "${VENV}"
 
     # if a kind cluster named e2e-testing is running export config, otherwise create a new cluster
     if ! kind get clusters | grep "${CLUSTER_NAME}"; then
@@ -270,10 +260,7 @@ cluster-up() {
 }
 
 cluster-down() {
-    local VENV="${1:?'Missing required parameter: VENV'}"
     local CLUSTER_NAME="${1:?'Missing required parameter: CLUSTER_NAME'}"
-
-    activate_venv "${VENV}"
 
     kind delete cluster --name "${CLUSTER_NAME}"
 }
