@@ -254,11 +254,14 @@ install-cluster-deps() {
 }
 
 cluster-up() {
+    local VENV="${1:?'Missing required parameter: VENV'}"
     local CLUSTER_NAME="${1:?'Missing required parameter: CLUSTER_NAME'}"
     local CLUSTER_CONFIG="${2:?'Missing required parameter: CLUSTER_CONFIG'}"
     local KUBERNETES_VERSION="${3:?'Missing required parameter: KUBERNETES_VERSION'}"
 
     local kind_node_image_tag="v${KUBERNETES_VERSION}"
+
+    activate_venv "${VENV}"
 
     # if a kind cluster named e2e-testing is running export config, otherwise create a new cluster
     if ! kind get clusters | grep "${CLUSTER_NAME}"; then
@@ -267,7 +270,10 @@ cluster-up() {
 }
 
 cluster-down() {
+    local VENV="${1:?'Missing required parameter: VENV'}"
     local CLUSTER_NAME="${1:?'Missing required parameter: CLUSTER_NAME'}"
+
+    activate_venv "${VENV}"
 
     kind delete cluster --name "${CLUSTER_NAME}"
 }
