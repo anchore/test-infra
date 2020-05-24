@@ -23,7 +23,6 @@ clean() {
 }
 
 lint() {
-
     hash tox || python -m pip install -q tox
 
     print_colorized INFO "Linting code."; echo
@@ -207,6 +206,7 @@ push-prod-image-rebuild() {
     fi
 }
 
+# TODO rework this so that VENV is optional
 install-cluster-deps() {
     local VENV="${1:?'Missing required parameter: VENV'}"
 

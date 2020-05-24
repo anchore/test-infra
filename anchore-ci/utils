@@ -4,7 +4,7 @@
 ### Common utility functions
 #############################################################
 
-export BASH_DEBUG="yes"
+export BASH_DEBUG=""
 
 bash_debug() {
   if [[ -n "$BASH_DEBUG" ]]; then echo "$1"; fi
