@@ -10,7 +10,7 @@ source "${script_dir}/utils"
 source "${script_dir}/common_tasks"
 
 usage() {
-		builtin printf ${WARN}
+    builtin printf ${WARN}
     cat << EOF
 
     This script is a simple wrapper or entry point for local CI tasks.  It provides a set of shared tasks
@@ -29,7 +29,7 @@ EOF
             rm -rf ./anchore-ci && mv /tmp/test-infra/anchore-ci . && rm -rf /tmp/test-infra
 EOF
 
-		builtin printf ${WARN}
+    builtin printf ${WARN}
     cat << EOF
 
     Your local makefile can include this as a dependency in other targets.  You can then invoke the
@@ -39,11 +39,13 @@ EOF
     builtin printf ${INFO}
     cat << EOF
 
+        CI_CMD = anchore-ci/local_ci
+
         clean: anchore-ci ## Clean up the project directory and delete dev image
             @\$(CI_CMD) clean \$(TEST_IMAGE_NAME)
 EOF
 
-		builtin printf ${WARN}
+    builtin printf ${WARN}
     cat << EOF
 
     Shared tasks can be found in the file \`common_tasks\`.
@@ -52,25 +54,17 @@ EOF
 
 EOF
     builtin printf ${INFO}
-    # Tasks w/underscores are 'helpers', not really meant to be overriden, so don't show them
-    cp "${script_dir}/common_tasks" /tmp; echo "declare -F" >> /tmp/common_tasks; eval /tmp/common_tasks | grep -v '_' | awk '{print "\t" $3}'
-		builtin printf ${RESET}
+    cp "${script_dir}/common_tasks" /tmp; echo "declare -F" >> /tmp/common_tasks; eval /tmp/common_tasks | awk '{print "\t" $3}'
+    builtin printf ${RESET}
     echo
-}
-
-make_usage() {
-    printf '\n%s\n' "Use make from the project root directory to invoke pipeline tasks"
-    print_colorized WARN "usage: make < target >"
 }
 
 # Check for valid input arguments
 if [[ "$#" -eq 0 ]]; then
-    #print_colorized ERROR "ERROR local_ci requires input." >&2
     usage
     exit 1
-
 elif [[ "$1" =~ (help|-h) ]]; then
-    make_usage
+    usage
     exit
 fi
 
@@ -78,21 +72,30 @@ fi
 # set -v but allows printing in color
 if [[ "${VERBOSE:-false}" =~ (true|TRUE|y|Y|1|2) ]]; then
     set -o functrace
-    trap '(printf "${INFO}%s${BASH_COMMAND}${NORMAL}\n" "+ ") >&2' DEBUG
+    trap '(printf "${INFO}%s${BASH_COMMAND}${RESET}\n" "+ ") >&2' DEBUG
     if [[ "${VERBOSE:-false}" = "2" ]]; then
         set -x
     fi
 fi
 
-# See if there's a local task overriding the task we're trying to execute.
-# If there is, execute that instead by replacing args.
+# If there's a local task overriding what we're trying to execute, replace
+# it in args.
 task="scripts/ci/$1"
-if [[ -f ${task} && -x ${task} ]]; then
-  bash_debug "Running overridden task ${1}."
-  args=("$task" "${@:2}")
+
+# Is there a local override?
+if [[ -f ${task} ]]; then
+    # There is; is it executable?
+    if [[ -x ${task} ]]; then
+        bash_debug "Running overridden task ${1}."
+        args=("$task" "${@:2}")
+    else
+        print_colorized WARN "${task} exists but it's not executable."
+        print_colorized WARN "Try this: 'chmod a+x ${task}', then rerun."; echo
+        exit 1
+    fi
 else
-  bash_debug "Running shared task ${1}."
-  args="$@"
+    bash_debug "Running shared task ${1}."
+    args="$@"
 fi
 
 # Turn things over to the shared or overridden function
