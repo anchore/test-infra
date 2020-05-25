@@ -1,3 +1,45 @@
-# Anchore Test Infra
+# Anchore Local CI/Test Harness
 
-This repo contains helper scripts for Anchore CI tasks as well as the Dockerfile for creating the `anchore/test-infra` image used for all CI jobs.
+This repository provides an entry point and set of shared tasks for testing and CI.  It allows any provided task to be easily overridden.
+
+## Usage
+
+To use the provided task `clean`, clone this repo into your project's root directory, and create the following variables and targets in your makefile:
+
+```
+TEST_IMAGE_NAME := my_image:latest
+TEST_HARNESS_REPO := https://github.com/anchore/test-infra.git
+CI_CMD := anchore-ci/local_ci
+
+anchore-ci: ## Fetch test artifacts for local CI
+  rm -rf /tmp/test-infra && git clone $(TEST_HARNESS_REPO) /tmp/test-infra
+  mv ./anchore-ci ./anchore-ci-`date +%F-%H-%M-%S` && mv /tmp/test-infra/anchore-ci .
+
+clean: anchore-ci ## Clean up the project directory and delete dev image
+  @$(CI_CMD) clean $(TEST_IMAGE_NAME)
+```
+
+To override the provided task with your own `clean`, provide an executable in `./scripts/ci/clean`, and the test harness entry point will invoke your task instead.
+
+Add the following to your .gitignore file so you don't pull in the test harness artifacts (unless you want to):
+
+```
+# CI scripts
+anchore-ci/
+```
+
+The following tasks are provided (run `./anchore-ci/local_ci` to see a current list in case this has changed):
+
+```
+clean
+cluster-down
+cluster-up
+install-cluster-deps
+lint
+push-dev-image
+push-prod-image-rebuild
+push-prod-image-release
+push-rc-image
+test-functional
+test-unit
+```
