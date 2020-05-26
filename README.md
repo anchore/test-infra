@@ -54,7 +54,7 @@ clean | TEST_IMAGE_NAME | No
 lint | None | Yes
 test-unit | None | Yes
 test-functional | None | Yes
-install-cluster-deps | VENV | Yes
+install-cluster-deps | VENV | No
 cluster-up | CLUSTER_NAME, CLUSTER_CONFIG,<br/>KUBERNETES_VERSION | Yes
 cluster-down | CLUSTER_NAME  | Yes
 push-dev-image | COMMIT_SHA, DEV_IMAGE_REPO,<br/>GIT_BRANCH, TEST_IMAGE_NAME | No
