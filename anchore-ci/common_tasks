@@ -43,7 +43,7 @@ test-unit() {
 
     for e in $(echo "${tox_env}"); do
         print_colorized INFO "Running unit tests using tox env $e."
-        tox test/unit -e "$e" --result-json .tox/unit-test-report.log
+        tox tests/unit -e "$e" --result-json .tox/unit-test-report.log
 
         print_colorized INFO "Finished running unit tests using tox env $e."
     done
@@ -62,7 +62,7 @@ test-functional() {
 
     for e in $(echo "${tox_env}"); do
         print_colorized INFO "Running functional tests using tox env $e."
-        tox -c test/functional/tox.ini -e "$e" --result-json .tox/functional-test-report.log
+        tox -c tests/functional/tox.ini -e "$e" --result-json .tox/functional-test-report.log
         print_colorized INFO "Finished running functional tests using tox env $e."
     done
 
