@@ -43,7 +43,8 @@ test-unit() {
 
     for e in $(echo "${tox_env}"); do
         print_colorized INFO "Running unit tests using tox env $e."
-        tox -e "$e" --result-json .tox/unit-test-report.log
+        tox test/unit -e "$e" --result-json .tox/unit-test-report.log
+
         print_colorized INFO "Finished running unit tests using tox env $e."
     done
 
