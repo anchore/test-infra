@@ -33,7 +33,7 @@ continue_prompt() {
     done
 }
 
-# Print message using the specified color code (OK, WARN, INFO, ERROR, NORMAL)
+# Print message using the specified color code (OK, WARN, INFO, ERROR)
 print_colorized() {
     local color_code=$1
     local message=$2

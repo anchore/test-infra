@@ -6,74 +6,83 @@
 ############################################################
 
 clean-py-cache() {
-  print_colorized WARN "Finding and deleting .py[co] files."; echo
-  continue_prompt
-  find . \( -type f -name "*.py[co]" -o -type d -name "__pycache__" \) -delete
-  print_colorized INFO "Found and deleted .py[co] files."; echo
+    print_colorized WARN "Finding and deleting .py[co] files."; echo
+    continue_prompt
+    find . \( -type f -name "*.py[co]" -o -type d -name "__pycache__" \) -delete
+    print_colorized INFO "Found and deleted .py[co] files."; echo
 }
 
 clean-tox() {
-  print_colorized WARN "Deleting .tox directory."; echo
-  continue_prompt
-  rm -rf .tox
-  print_colorized INFO "Deleted .tox directory."; echo
+    print_colorized WARN "Deleting .tox directory."; echo
+    continue_prompt
+    rm -rf .tox
+    print_colorized INFO "Deleted .tox directory."; echo
 }
 
 clean-venv() {
-  local VENV="${1:?'Missing required parameter: VENV.'}"
-  print_colorized WARN "Deleting virtualenv ${VENV}."; echo
-  continue_prompt
-  rm -rf "${VENV}"
-  print_colorized INFO "Deleted virtualenv ${VENV}."; echo
+    local VENV="${1:?'Missing required parameter: VENV.'}"
+    print_colorized WARN "Deleting virtualenv ${VENV}."; echo
+    continue_prompt
+    rm -rf "${VENV}"
+    print_colorized INFO "Deleted virtualenv ${VENV}."; echo
 }
 
 clean-dist() {
-  print_colorized WARN "Deleting build and dist data."; echo
-  continue_prompt
-  rm -rf ./*.egg-info dist build
-  print_colorized INFO "Deleted build and dist data."; echo
+    print_colorized WARN "Deleting build and dist data."; echo
+    continue_prompt
+    rm -rf ./*.egg-info dist build
+    print_colorized INFO "Deleted build and dist data."; echo
 }
 
 clean-image() {
-  local TEST_IMAGE_NAME="${1:?'Missing required parameter: TEST_IMAGE_NAME.'}"
-  print_colorized WARN "Deleting Docker image '${TEST_IMAGE_NAME}.'"; echo
-  continue_prompt
-  docker rmi "${TEST_IMAGE_NAME}"
-  print_colorized INFO "Deleted Docker image '${TEST_IMAGE_NAME}.'"; echo
+    local IMAGE_NAME="${1:?'Missing required parameter: IMAGE_NAME.'}"
+    print_colorized WARN "Deleting Docker image '${IMAGE_NAME}.'"; echo
+    continue_prompt
+    image=$(docker images -q "${IMAGE_NAME}")
+    if [[ -n "${image}" ]]; then
+        docker rmi "${image}"
+        print_colorized INFO "Deleted Docker image '${IMAGE_NAME}.'"; echo
+    else
+        print_colorized INFO "Did not find Docker image '${IMAGE_NAME}.'"; echo
+    fi
 }
 
 clean-all() {
-  local VENV="${1:?'Missing required parameter: VENV.'}"
-  local TEST_IMAGE_NAME="${2:?'Missing required parameter: TEST_IMAGE_NAME.'}"
-  print_colorized WARN "This will prompt you to delete each category (5 prompts)."
-  print_colorized WARN "If you prefer to clean all without these prompts, try clean-noprompt."
-  print_colorized WARN "Or, call them individually:"
-  print_colorized WARN "clean-venv"
-  print_colorized WARN "clean-dist"
-  print_colorized WARN "clean-tox"
-  print_colorized WARN "clean-py-cache"
-  print_colorized WARN "clean-image"; echo
-  clean-venv "${VENV}"
-  clean-dist
-  clean-tox
-  clean-py-cache
-  clean-image "${TEST_IMAGE_NAME}"
+    local VENV="${1:?'Missing required parameter: VENV.'}"
+    local TEST_IMAGE_NAME="${2:?'Missing required parameter: TEST_IMAGE_NAME.'}"
+    print_colorized WARN "This will prompt you to delete each category (5 prompts)."
+    print_colorized WARN "If you prefer to clean all without these prompts, try clean-noprompt."
+    print_colorized WARN "Or, individually call the tasks you want:"
+    print_colorized WARN "clean-venv"
+    print_colorized WARN "clean-dist"
+    print_colorized WARN "clean-tox"
+    print_colorized WARN "clean-py-cache"
+    print_colorized WARN "clean-image"; echo
+    clean-venv "${VENV}"
+    clean-dist
+    clean-tox
+    clean-py-cache
+    clean-image "${TEST_IMAGE_NAME}"
 }
 
 clean() {
-  local VENV="${1:?'Missing required parameter: VENV.'}"
-  local TEST_IMAGE_NAME="${2:?'Missing required parameter: TEST_IMAGE_NAME.'}"
-  clean-all "${VENV}" "${TEST_IMAGE_NAME}"
+    local VENV="${1:?'Missing required parameter: VENV.'}"
+    local TEST_IMAGE_NAME="${2:?'Missing required parameter: TEST_IMAGE_NAME.'}"
+    clean-all "${VENV}" "${TEST_IMAGE_NAME}"
 }
 
 clean-noprompt() {
-  local VENV="${1:?'Missing required parameter: VENV.'}"
-  local TEST_IMAGE_NAME="${2:?'Missing required parameter: TEST_IMAGE_NAME.'}"
-  print_colorized WARN "Deleting image, virtualenv, cache, build and testing temp data."; echo
-  rm -rf "${VENV}" ./*.egg-info dist build .tox
-  find . \( -type f -name "*.py[co]" -o -type d -name "__pycache__" \) -delete
-  docker rmi "${TEST_IMAGE_NAME}"
-  print_colorized INFO "Finished clean."; echo
+    local VENV="${1:?'Missing required parameter: VENV.'}"
+    local IMAGE_NAME="${2:?'Missing required parameter: IMAGE_NAME.'}"
+    print_colorized WARN "Deleting image, virtualenv, cache, build and testing temp data."; echo
+    rm -rf "${VENV}" ./*.egg-info dist build .tox
+    find . \( -type f -name "*.py[co]" -o -type d -name "__pycache__" \) -delete
+    bash_debug "test image: ${IMAGE_NAME}"
+    image=$(docker images -q "${IMAGE_NAME}")
+    if [[ -n "${image}" ]]; then
+        docker rmi "${image}"
+    fi
+    print_colorized INFO "Finished clean-noprompt."; echo
 }
 
 lint() {
@@ -93,13 +102,13 @@ test-unit() {
 
     hash tox || python -m pip install -q tox
 
-		# Allow location of tox.ini to be passed in, optionally
+        # Allow location of tox.ini to be passed in, optionally
     local TOX_CONFIG="${1:-}"
-		local TOX_ARGS=""
+        local TOX_ARGS=""
 
-		if [[ -n ${TOX_CONFIG} ]]; then
-				TOX_ARGS="-c ${TOX_CONFIG}"
-		fi
+        if [[ -n ${TOX_CONFIG} ]]; then
+                TOX_ARGS="-c ${TOX_CONFIG}"
+        fi
 
     print_colorized INFO "Running unit tests."; echo
 
@@ -120,13 +129,13 @@ test-functional() {
 
     hash tox || python -m pip install -q tox
 
-		# Allow location of tox.ini to be passed in, optionally
+        # Allow location of tox.ini to be passed in, optionally
     local TOX_CONFIG="${1:-}"
-		local TOX_ARGS=""
+        local TOX_ARGS=""
 
-		if [[ -n ${TOX_CONFIG} ]]; then
-				TOX_ARGS="-c ${TOX_CONFIG}"
-		fi
+        if [[ -n ${TOX_CONFIG} ]]; then
+                TOX_ARGS="-c ${TOX_CONFIG}"
+        fi
 
     print_colorized INFO "Running functional tests."; echo
 
@@ -188,7 +197,7 @@ cluster-up() {
     if ! kind get clusters | grep "${CLUSTER_NAME}"; then
         kind create cluster --name "${CLUSTER_NAME}" --config "${CLUSTER_CONFIG}" --image "kindest/node:${kind_node_image_tag}" --wait 60s
     else
-    	print_colorized INFO "Kind cluster already running."
+        print_colorized INFO "Kind cluster already running."
     fi
 }
 
