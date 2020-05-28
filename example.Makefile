@@ -51,7 +51,7 @@ CI_USER := circleci
 # run recipes in parallel (unless they also contain .NOTPARALLEL)
 .NOTPARALLEL:
 
-CI_CMD := anchore-ci/local_ci
+CI_CMD := anchore-ci/ci_harness
 
 
 #### Make targets
@@ -64,7 +64,7 @@ CI_CMD := anchore-ci/local_ci
 all: VERBOSE := true ## Run all make targets
 all: lint build test push
 
-anchore-ci: ## Fetch test artifacts for local CI
+anchore-ci: ## Fetch test artifacts for the CI harness
 	rm -rf /tmp/test-infra; git clone $(TEST_HARNESS_REPO) /tmp/test-infra
 	mv ./anchore-ci ./anchore-ci-`date +%F-%H-%M-%S`; mv /tmp/test-infra/anchore-ci .
 

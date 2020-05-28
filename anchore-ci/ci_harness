@@ -8,6 +8,7 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # Source CI utility functions and shared tasks
 source "${script_dir}/utils"
 source "${script_dir}/common_tasks"
+source "${script_dir}/release_tasks"
 
 usage() {
     builtin printf ${WARN}

@@ -5,20 +5,74 @@
 # projects, and easily overriden.
 ############################################################
 
-clean() {
-  TEST_IMAGE_NAME="${1:?'Missing required parameter: TEST_IMAGE_NAME.'}"
-
-  print_colorized WARN "Deleting virtualenv, cache, build and testing temp data."; echo
-
+clean-py-cache() {
+  print_colorized WARN "Finding and deleting .py[co] files."; echo
   continue_prompt
-  rm -rf venv ./*.egg-info dist build .tox
   find . \( -type f -name "*.py[co]" -o -type d -name "__pycache__" \) -delete
+  print_colorized INFO "Found and deleted .py[co] files."; echo
+}
 
+clean-tox() {
+  print_colorized WARN "Deleting .tox directory."; echo
+  continue_prompt
+  rm -rf .tox
+  print_colorized INFO "Deleted .tox directory."; echo
+}
+
+clean-venv() {
+  local VENV="${1:?'Missing required parameter: VENV.'}"
+  print_colorized WARN "Deleting virtualenv ${VENV}."; echo
+  continue_prompt
+  rm -rf "${VENV}"
+  print_colorized INFO "Deleted virtualenv ${VENV}."; echo
+}
+
+clean-dist() {
+  print_colorized WARN "Deleting build and dist data."; echo
+  continue_prompt
+  rm -rf ./*.egg-info dist build
+  print_colorized INFO "Deleted build and dist data."; echo
+}
+
+clean-image() {
+  local TEST_IMAGE_NAME="${1:?'Missing required parameter: TEST_IMAGE_NAME.'}"
   print_colorized WARN "Deleting Docker image '${TEST_IMAGE_NAME}.'"; echo
-
   continue_prompt
   docker rmi "${TEST_IMAGE_NAME}"
+  print_colorized INFO "Deleted Docker image '${TEST_IMAGE_NAME}.'"; echo
+}
 
+clean-all() {
+  local VENV="${1:?'Missing required parameter: VENV.'}"
+  local TEST_IMAGE_NAME="${2:?'Missing required parameter: TEST_IMAGE_NAME.'}"
+  print_colorized WARN "This will prompt you to delete each category (5 prompts)."
+  print_colorized WARN "If you prefer to clean all without these prompts, try clean-noprompt."
+  print_colorized WARN "Or, call them individually:"
+  print_colorized WARN "clean-venv"
+  print_colorized WARN "clean-dist"
+  print_colorized WARN "clean-tox"
+  print_colorized WARN "clean-py-cache"
+  print_colorized WARN "clean-image"; echo
+  clean-venv "${VENV}"
+  clean-dist
+  clean-tox
+  clean-py-cache
+  clean-image "${TEST_IMAGE_NAME}"
+}
+
+clean() {
+  local VENV="${1:?'Missing required parameter: VENV.'}"
+  local TEST_IMAGE_NAME="${2:?'Missing required parameter: TEST_IMAGE_NAME.'}"
+  clean-all "${VENV}" "${TEST_IMAGE_NAME}"
+}
+
+clean-noprompt() {
+  local VENV="${1:?'Missing required parameter: VENV.'}"
+  local TEST_IMAGE_NAME="${2:?'Missing required parameter: TEST_IMAGE_NAME.'}"
+  print_colorized WARN "Deleting image, virtualenv, cache, build and testing temp data."; echo
+  rm -rf "${VENV}" ./*.egg-info dist build .tox
+  find . \( -type f -name "*.py[co]" -o -type d -name "__pycache__" \) -delete
+  docker rmi "${TEST_IMAGE_NAME}"
   print_colorized INFO "Finished clean."; echo
 }
 
@@ -34,16 +88,24 @@ lint() {
 
 test-unit() {
     # Declare default tox envs, but allow TOX_ENV to override
-    default_tox_envs="py27 py36"
-    tox_env="${TOX_ENV:-$default_tox_envs}"
+    local default_tox_envs="py27 py36"
+    local tox_env="${TOX_ENV:-$default_tox_envs}"
 
     hash tox || python -m pip install -q tox
+
+		# Allow location of tox.ini to be passed in, optionally
+    local TOX_CONFIG="${1:-}"
+		local TOX_ARGS=""
+
+		if [[ -n ${TOX_CONFIG} ]]; then
+				TOX_ARGS="-c ${TOX_CONFIG}"
+		fi
 
     print_colorized INFO "Running unit tests."; echo
 
     for e in $(echo "${tox_env}"); do
         print_colorized INFO "Running unit tests using tox env $e."
-        tox tests/unit -e "$e" --result-json .tox/unit-test-report.log
+        tox ${TOX_ARGS} tests/unit -e "$e" --result-json .tox/unit-test-report.log
 
         print_colorized INFO "Finished running unit tests using tox env $e."
     done
@@ -53,158 +115,28 @@ test-unit() {
 
 test-functional() {
     # Declare default tox envs, but allow TOX_ENV to override
-    default_tox_envs="py36-anchore_latest py36-anchore_0.6.0 py36-anchore_0.5.1"
-    tox_env="${TOX_ENV:-$default_tox_envs}"
+    local default_tox_envs="py36-anchore_latest py36-anchore_0.6.0 py36-anchore_0.5.1"
+    local tox_env="${TOX_ENV:-$default_tox_envs}"
 
     hash tox || python -m pip install -q tox
+
+		# Allow location of tox.ini to be passed in, optionally
+    local TOX_CONFIG="${1:-}"
+		local TOX_ARGS=""
+
+		if [[ -n ${TOX_CONFIG} ]]; then
+				TOX_ARGS="-c ${TOX_CONFIG}"
+		fi
 
     print_colorized INFO "Running functional tests."; echo
 
     for e in $(echo "${tox_env}"); do
         print_colorized INFO "Running functional tests using tox env $e."
-        tox -c tests/functional/tox.ini -e "$e" --result-json .tox/functional-test-report.log
+        tox ${TOX_ARGS} -e "$e" --result-json .tox/functional-test-report.log
         print_colorized INFO "Finished running functional tests using tox env $e."
     done
 
     print_colorized INFO "Finished running functional tests."; echo
-}
-
-push-dev-image() {
-    local COMMIT_SHA="${1:?'Missing required parameter: COMMIT_SHA'}"
-    local DEV_IMAGE_REPO="${2:?'Missing required parameter: DEV_IMAGE_REPO'}"
-    local GIT_BRANCH="${3:?'Missing required parameter: GIT_BRANCH'}"
-    local TEST_IMAGE_NAME="${4:?'Missing required parameter: TEST_IMAGE_NAME'}"
-
-    local dev_image="${DEV_IMAGE_REPO}:${COMMIT_SHA}"
-    local latest_image="${DEV_IMAGE_REPO}:latest"
-    local branch_image="${DEV_IMAGE_REPO}:${GIT_BRANCH}"
-
-    print_colorized INFO "Tagging and pushing dev image."; echo
-
-    # Test for required environment variables exported by CI system
-    if [[ "${CI:-false}" == true ]]; then
-        test "${DOCKER_USER:?'Missing required env variable: DOCKER_USER'}"
-        test "${DOCKER_PASS:?'Missing required env variable: DOCKER_PASS'}"
-        test "${RELEASE_BRANCHES:?'Missing required env variable: RELEASE_BRANCHES'}"
-
-        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
-
-        print_colorized INFO "Tagging and pushing dev image ${dev_image}."; echo
-        docker tag "${TEST_IMAGE_NAME}" "${dev_image}"
-        docker push "${dev_image}"
-
-        if [[ "${GIT_BRANCH}" == 'master' ]]; then
-            print_colorized INFO "Tagging and pushing image ${latest_image}."; echo
-            docker tag "${dev_image}" "${latest_image}"
-            docker push "${latest_image}"
-        elif [[ "${RELEASE_BRANCHES}" == *"${GIT_BRANCH}"* ]]; then
-            print_colorized INFO "Tagging and pushing image ${branch_image}."; echo
-            docker tag "${dev_image}" "${branch_image}"
-            docker push "${branch_image}"
-        fi
-    else
-        print_colorized INFO "Tagging and pushing image ${dev_image}."; echo
-        continue_prompt
-        docker tag "${TEST_IMAGE_NAME}" "${dev_image}"
-        docker push "${dev_image}"
-    fi
-
-    print_colorized INFO "Finished tagging and pushing dev image."; echo
-}
-
-push-rc-image() {
-    local COMMIT_SHA="${1:?'Missing required parameter: COMMIT_SHA'}"
-    local DEV_IMAGE_REPO="${2:?'Missing required parameter: DEV_IMAGE_REPO'}"
-    local GIT_TAG="${3:?'Missing required parameter: GIT_TAG'}"
-
-    local dev_image="${DEV_IMAGE_REPO}:${COMMIT_SHA}"
-    local rc_image="${DEV_IMAGE_REPO}:${GIT_TAG}"
-
-    print_colorized WARN "Pushing RC image."; echo
-
-    # Test for required environment variables exported by CI system
-    if [[ "${CI}" == true ]]; then
-        test "${DOCKER_USER:?'Missing required environment variable: DOCKER_USER'}"
-        test "${DOCKER_PASS:?'Missing required environment variable: DOCKER_PASS'}"
-
-        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
-
-        print_colorized INFO "Pulling dev image for release candidate: ${dev_image}."; echo
-        docker pull "${dev_image}"
-
-        print_colorized WARN "Tagging and pushing image ${rc_image}."; echo
-        docker tag "${dev_image}" "${rc_image}"
-        docker push "${rc_image}"
-    else
-        print_colorized ERROR "RC images can only be pushed in the CI enviornment."; echo
-    fi
-}
-
-push-prod-image-release() {
-    local DEV_IMAGE_REPO="${1:?'Missing required parameter: DEV_IMAGE_REPO'}"
-    local GIT_BRANCH="${2:-'Missing required parameter: GIT_BRANCH'}"
-    local GIT_TAG="${3:?'Missing required parameter: GIT_TAG'}"
-    local PROD_IMAGE_REPO="${4:?'Missing required parameter: PROD_IMAGE_REPO'}"
-
-    print_colorized WARN "Tagging and pushing production image."; echo
-
-    local prod_image="${PROD_IMAGE_REPO}:${GIT_TAG}"
-    local rc_image="${DEV_IMAGE_REPO}:$(git describe --match "${GIT_TAG}-rc*" --tags --abbrev=0)"
-
-    # Test for required environment variables exported from CI system
-    if [[ "${CI:-false}" == true ]]; then
-        test "${DOCKER_USER:?'Missing required environment variable: DOCKER_USER'}"
-        test "${DOCKER_PASS:?'Missing required environment variable: DOCKER_PASS'}"
-        test "${LATEST_RELEASE_BRANCH:?'Missing required environment variable: LATEST_RELEASE_BRANCH'}"
-        test "${PROD_IMAGE_REPO:?'Missing required environment variable: PROD_IMAGE_REPO'}"
-
-        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
-
-        print_colorized WARN "Pulling RC image for release ${rc_image}."; echo
-        docker pull "${rc_image}"
-
-        print_colorized WARN "Tagging and pushing production image ${prod_image}."; echo
-        docker tag "${rc_image}" "${prod_image}"
-        docker push "${prod_image}"
-
-        if [[ "${GIT_BRANCH}" == "${LATEST_RELEASE_BRANCH}" ]]; then
-            local latest_image="${PROD_IMAGE_REPO}:latest"
-            print_colorized WARN "Tagging and pushing production image ${latest_image}."; echo
-            docker tag "${prod_image}" "${latest_image}"
-            docker push "${latest_image}"
-        fi
-    else
-        print_colorized ERROR "Production images can only be pushed in the CI environment."; echo
-    fi
-}
-
-push-prod-image-rebuild() {
-    local COMMIT_SHA="${1:?'Missing required parameter: COMMIT_SHA'}"
-    local DEV_IMAGE_REPO="${2:?'Missing required parameter: DEV_IMAGE_REPO'}"
-    local GIT_TAG="${3:?'Missing required parameter: GIT_TAG'}"
-    local PROD_IMAGE_REPO="${4:?'Missing required parameter: PROD_IMAGE_REPO'}"
-
-    print_colorized WARN "Rebuilding image '${TEST_IMAGE_NAME}'."; echo
-
-    local dev_image="${DEV_IMAGE_REPO}:${COMMIT_SHA}"
-    local rebuild_image="${PROD_IMAGE_REPO}:${GIT_TAG}"
-
-    # Test for required environment variables from CI system
-    if [[ "${CI:-false}" == true ]]; then
-        test "${DOCKER_USER:?'Missing required env variable: DOCKER_USER'}"
-        test "${DOCKER_PASS:?'Missing required env variable: DOCKER_PASS'}"
-
-        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
-
-        print_colorized WARN "Pulling dev image for release candidate ${dev_image}."; echo
-        docker pull "${dev_image}"
-
-        print_colorized WARN "Tagging and pushing image ${rebuild_image}."; echo
-        docker tag "${dev_image}" "${rebuild_image}"
-        docker push "${rebuild_image}"
-    else
-        print_colorized ERROR "Production images can only be pushed in the CI environment."; echo
-    fi
 }
 
 # TODO rework this so that VENV is optional
@@ -213,12 +145,10 @@ install-cluster-deps() {
 
     print_colorized INFO "Installing dependencies to run local k8s cluster."
 
-    local arch
+    local arch="$(uname | tr '[:upper:]' '[:lower:]')"
     local kind_version="v0.7.0"
     local kubectl_version="v1.15.0"
     local helm_version="v3.1.1"
-
-    arch="$(uname | tr '[:upper:]' '[:lower:]')"
 
     if [[ ! -x "${VENV}/bin/kind" ]]; then
         print_colorized WARN "Installing kind"
@@ -250,13 +180,15 @@ install-cluster-deps() {
 cluster-up() {
     local CLUSTER_NAME="${1:?'Missing required parameter: CLUSTER_NAME'}"
     local CLUSTER_CONFIG="${2:?'Missing required parameter: CLUSTER_CONFIG'}"
-    local KUBERNETES_VERSION="${3:?'Missing required parameter: KUBERNETES_VERSION'}"
+    local K8S_VERSION="${3:?'Missing required parameter: K8S_VERSION'}"
 
-    local kind_node_image_tag="v${KUBERNETES_VERSION}"
+    local kind_node_image_tag="v${K8S_VERSION}"
 
     # if a kind cluster named e2e-testing is running export config, otherwise create a new cluster
     if ! kind get clusters | grep "${CLUSTER_NAME}"; then
         kind create cluster --name "${CLUSTER_NAME}" --config "${CLUSTER_CONFIG}" --image "kindest/node:${kind_node_image_tag}" --wait 60s
+    else
+    	print_colorized INFO "Kind cluster already running."
     fi
 }
 
@@ -264,4 +196,24 @@ cluster-down() {
     local CLUSTER_NAME="${1:?'Missing required parameter: CLUSTER_NAME'}"
 
     kind delete cluster --name "${CLUSTER_NAME}"
+}
+
+compose-up() {
+    local TEST_IMAGE_NAME="${1:?'Missing required parameter: TEST_IMAGE_NAME'}"
+    local COMPOSE_FILE="${2:?'Missing required parameter: COMPOSE_FILE'}"
+
+    hash docker-compose || python -m pip install docker-compose
+
+    export TEST_IMAGE_NAME
+    docker-compose -f ${COMPOSE_FILE} up -d
+}
+
+compose-down() {
+    local TEST_IMAGE_NAME="${1:?'Missing required parameter: TEST_IMAGE_NAME'}"
+    local COMPOSE_FILE="${2:?'Missing required parameter: COMPOSE_FILE'}"
+
+    hash docker-compose || python -m pip install docker-compose
+
+    export TEST_IMAGE_NAME
+    docker-compose -f ${COMPOSE_FILE} down
 }

@@ -1,4 +1,4 @@
-# Anchore Local CI/Test Harness
+# Anchore CI/Test Harness
 
 This repository provides an entry point and set of shared tasks for testing and CI.  It allows any provided task to be easily overridden.  Currently this is for use with Python.
 
@@ -9,9 +9,9 @@ To use the provided task `clean`, clone this repo into your project's root direc
 ```
 TEST_IMAGE_NAME := my_image:latest
 TEST_HARNESS_REPO := https://github.com/anchore/test-infra.git
-CI_CMD := anchore-ci/local_ci
+CI_CMD := anchore-ci/ci_harness
 
-anchore-ci: ## Fetch test artifacts for local CI
+anchore-ci: ## Fetch test artifacts for the CI harness
   rm -rf /tmp/test-infra; git clone $(TEST_HARNESS_REPO) /tmp/test-infra
   mv ./anchore-ci ./anchore-ci-`date +%F-%H-%M-%S`; mv /tmp/test-infra/anchore-ci .
 
@@ -29,7 +29,7 @@ Add the following to your .gitignore file so you don't pull in the test harness 
 anchore-ci*/
 ```
 
-The following tasks are provided (run `./anchore-ci/local_ci` to see a current list in case this has changed):
+The following tasks are provided (run `./anchore-ci/ci_harness` to see a current list in case this has changed):
 
 ```
 clean

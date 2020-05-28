@@ -24,7 +24,7 @@ activate_venv() {
 
 continue_prompt() {
     while true; do
-        read -p "Do you want to continue? " yn
+        read -p "Do you want to continue? (y/n) " yn
         case ${yn} in
             [Yy]* ) break;;
             [Nn]* ) exit;;
