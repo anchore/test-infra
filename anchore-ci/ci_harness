@@ -69,16 +69,6 @@ elif [[ "$1" =~ (help|-h) ]]; then
     exit
 fi
 
-# VERBOSE will trap all bash commands & print to screen, like using
-# set -v but allows printing in color
-if [[ "${VERBOSE:-false}" =~ (true|TRUE|y|Y|1|2) ]]; then
-    set -o functrace
-    trap '(printf "${INFO}%s${BASH_COMMAND}${RESET}\n" "+ ") >&2' DEBUG
-    if [[ "${VERBOSE:-false}" = "2" ]]; then
-        set -x
-    fi
-fi
-
 # If there's a local task overriding what we're trying to execute, replace
 # it in args.
 task="scripts/ci/$1"

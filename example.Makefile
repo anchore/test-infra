@@ -13,7 +13,6 @@ TEST_HARNESS_REPO := https://github.com/anchore/test-infra.git
 
 #### CircleCI environment variables (your use case may vary)
 ############################################################
-export VERBOSE ?= false
 export CI ?= false
 export DOCKER_PASS ?=
 export DOCKER_USER ?=
@@ -61,8 +60,7 @@ CI_CMD := anchore-ci/ci_harness
 .PHONY: test test-unit test-functional test-e2e lint
 .PHONY: push push-dev push-rc push-prod push-rebuild
 
-all: VERBOSE := true ## Run all make targets
-all: lint build test push
+all: lint build test push ## Run all make targets
 
 anchore-ci: ## Fetch test artifacts for the CI harness
 	rm -rf /tmp/test-infra; git clone $(TEST_HARNESS_REPO) /tmp/test-infra
