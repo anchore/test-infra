@@ -59,7 +59,7 @@ push-rc-image() {
     print_colorized WARN "Pushing RC image."; echo
 
     # Test for required environment variables exported by CI system
-    if [[ "${CI}" == true ]]; then
+    if [[ "${CI:-false}" == true ]]; then
         test "${DOCKER_USER:?'Missing required environment variable: DOCKER_USER'}"
         test "${DOCKER_PASS:?'Missing required environment variable: DOCKER_PASS'}"
 
@@ -102,7 +102,9 @@ push-prod-image-release() {
         docker tag "${rc_image}" "${prod_image}"
         docker push "${prod_image}"
 
-        if [[ "${GIT_BRANCH}" == "${LATEST_RELEASE_BRANCH}" ]]; then
+        local latest_tag_regex="^v${LATEST_RELEASE_BRANCH}\.[0-9]+\$"
+
+        if [[ "${GIT_TAG}" =~ ${latest_tag_regex} ]]; then
             local latest_image="${PROD_IMAGE_REPO}:latest"
             print_colorized WARN "Tagging and pushing production image ${latest_image}."; echo
             docker tag "${prod_image}" "${latest_image}"
