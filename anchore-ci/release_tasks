@@ -143,3 +143,31 @@ push-prod-image-rebuild() {
         print_colorized ERROR "Production images can only be pushed in the CI environment."; echo
     fi
 }
+
+push-redhat-image() {
+    local GIT_TAG="${1:?'Missing required parameter: GIT_TAG'}"
+    local REDHAT_RELEASE="${2:-'r0'}"
+
+    # Test for required environment variables exported by CI system
+    if [[ "${CI:-false}" == true ]]; then
+        test "${PROD_IMAGE_REPO:?'Missing required environment variable: PROD_IMAGE_REPO'}"
+        test "${REDHAT_REGISTRY:?'Missing required environment variable: REDHAT_IMAGE'}"
+        test "${REDHAT_PASS:?'Missing required environment variable: REDHAT_PASS'}"
+
+        local prod_image="${PROD_IMAGE_REPO}:${GIT_TAG}"
+        local redhat_image="${REDHAT_REGISTRY}:${GIT_TAG}-${REDHAT_RELEASE}"
+
+        print_colorized WARN "Tagging and pushing production image to RedHat Connect."; echo
+        echo "${REDHAT_PASS}" | docker login -u unused --password-stdin scan.connect.redhat.com
+
+        print_colorized WARN "Pulling production image for RedHat release ${prod_image}."; echo
+        docker pull "${prod_image}"
+
+        print_colorized WARN "Tagging and pushing RedHat image ${redhat_image}."; echo
+        docker tag "${prod_image}" "${redhat_image}"
+        docker push "${redhat_image}"
+
+    else
+        print_colorized ERROR "RedHat images can only be pushed in the CI environment."; echo
+    fi
+}
