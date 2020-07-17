@@ -141,7 +141,7 @@ push-prod-image-rebuild() {
 
 push-redhat-image() {
     local GIT_TAG="${1:?'Missing required parameter: GIT_TAG'}"
-    local REDHAT_RELEASE="${2:-'r0'}"
+    local REDHAT_RELEASE="${2:-r0}"
 
     # Test for required environment variables exported by CI system
     if [[ "${CI:-false}" == true ]]; then
