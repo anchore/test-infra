@@ -6,10 +6,10 @@
 ############################################################
 
 clean-py-cache() {
-    print_colorized WARN "Finding and deleting .py[co] files."; echo
+    print_colorized WARN "Finding and deleting .py[co] files & __pycache__ directories."; echo
     continue_prompt
     find . \( -type f -name "*.py[co]" -o -type d -name "__pycache__" \) -delete
-    print_colorized INFO "Found and deleted .py[co] files."; echo
+    print_colorized INFO "Found and deleted .py[co] files & __pycache__ directories."; echo
 }
 
 clean-tox() {
@@ -47,34 +47,61 @@ clean-image() {
     fi
 }
 
-clean-all() {
-    local VENV="${1:?'Missing required parameter: VENV.'}"
-    local TEST_IMAGE_NAME="${2:?'Missing required parameter: TEST_IMAGE_NAME.'}"
-    print_colorized WARN "This will prompt you to delete each category (5 prompts)."
-    print_colorized WARN "If you prefer to clean all without these prompts, try clean-noprompt."
-    print_colorized WARN "Or, individually call the tasks you want:"
-    print_colorized WARN "clean-venv"
-    print_colorized WARN "clean-dist"
-    print_colorized WARN "clean-tox"
-    print_colorized WARN "clean-py-cache"
-    print_colorized WARN "clean-image"; echo
-    clean-venv "${VENV}"
-    clean-dist
-    clean-tox
-    clean-py-cache
-    clean-image "${TEST_IMAGE_NAME}"
-}
-
 clean() {
     local VENV="${1:?'Missing required parameter: VENV.'}"
     local TEST_IMAGE_NAME="${2:?'Missing required parameter: TEST_IMAGE_NAME.'}"
-    clean-all "${VENV}" "${TEST_IMAGE_NAME}"
+    if [[ ${NOPROMPT:-false} == true ]]; then
+        clean-all-noprompt "${VENV}" "${TEST_IMAGE_NAME}"
+    else
+        clean-prompt
+        while true; do
+            read -p "Type clean task here: " clean_task
+            case ${clean_task} in
+                all ) clean-all "${VENV}" "${TEST_IMAGE_NAME}"; break;;
+                venv ) clean-venv "${VENV}"; break;;
+                dist ) clean-dist; break;;
+                tox ) clean-tox; break;;
+                cache ) clean-py-cache; break;;
+                image ) clean-image "${TEST_IMAGE_NAME}"; break;;
+                * ) clean-prompt;;
+            esac
+        done
+    fi
 }
 
-clean-noprompt() {
+clean-all() {
+    local VENV="${1:?'Missing required parameter: VENV.'}"
+    local TEST_IMAGE_NAME="${2:?'Missing required parameter: TEST_IMAGE_NAME.'}"
+    (clean-venv "${VENV}")
+    (clean-dist)
+    (clean-tox)
+    (clean-py-cache)
+    (clean-image "${TEST_IMAGE_NAME}")
+}
+
+clean-prompt() {
+    printf "${WARN}"
+    cat << EOF
+
+    This will prompt you to delete each category (5 prompts).
+    If you prefer to clean all without these prompts, try running `make clean-noprompt`.
+
+    Which of the following clean tasks would you like to run?
+        all
+        cache
+        dist
+        image
+        tox
+        venv
+EOF
+    printf "${RESET}"; echo
+}
+
+clean-all-noprompt() {
     local VENV="${1:?'Missing required parameter: VENV.'}"
     local IMAGE_NAME="${2:?'Missing required parameter: IMAGE_NAME.'}"
     print_colorized WARN "Deleting image, virtualenv, cache, build and testing temp data."; echo
+    set -x
     rm -rf "${VENV}" ./*.egg-info dist build .tox
     find . \( -type f -name "*.py[co]" -o -type d -name "__pycache__" \) -delete
     bash_debug "test image: ${IMAGE_NAME}"
@@ -82,7 +109,8 @@ clean-noprompt() {
     if [[ -n "${image}" ]]; then
         docker rmi "${image}"
     fi
-    print_colorized INFO "Finished clean-noprompt."; echo
+    set +x
+    print_colorized INFO "Finished deleting image, virtualenv, cache, build and testing temp data."; echo
 }
 
 lint() {
