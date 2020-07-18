@@ -11,7 +11,7 @@ source "${script_dir}/common_tasks"
 source "${script_dir}/release_tasks"
 
 usage() {
-    builtin printf ${WARN}
+    printf "${WARN}"
     cat << EOF
 
     This script is a simple wrapper or entry point for local CI tasks.  It provides a set of shared tasks
@@ -22,7 +22,7 @@ usage() {
     For example, given the make target:
 EOF
 
-    builtin printf ${INFO}
+    printf "${INFO}"
     cat << EOF
 
         anchore-ci: ## Fetch test artifacts for local CI
@@ -30,14 +30,14 @@ EOF
             rm -rf ./anchore-ci && mv /tmp/test-infra/anchore-ci . && rm -rf /tmp/test-infra
 EOF
 
-    builtin printf ${WARN}
+    printf "${WARN}"
     cat << EOF
 
     Your local makefile can include this as a dependency in other targets.  You can then invoke the
     shared tasks, e.g.:
 EOF
 
-    builtin printf ${INFO}
+    printf "${INFO}"
     cat << EOF
 
         CI_CMD = anchore-ci/local_ci
@@ -46,7 +46,7 @@ EOF
             @\$(CI_CMD) clean \$(TEST_IMAGE_NAME)
 EOF
 
-    builtin printf ${WARN}
+    printf "${WARN}"
     cat << EOF
 
     Shared tasks can be found in the file \`common_tasks\`.
@@ -54,9 +54,9 @@ EOF
     The following shared tasks are currently supplied:
 
 EOF
-    builtin printf ${INFO}
+    printf "${INFO}"
     cp "${script_dir}/common_tasks" /tmp; echo "declare -F" >> /tmp/common_tasks; eval /tmp/common_tasks | awk '{print "\t" $3}'
-    builtin printf ${RESET}
+    printf "${RESET}"
     echo
 }
 

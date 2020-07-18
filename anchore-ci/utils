@@ -37,15 +37,7 @@ continue_prompt() {
 print_colorized() {
     local color_code=$1
     local message=$2
-    builtin printf "\n${!color_code}%s${RESET}\n" "${message}"
-}
-
-printf() {
-    if [[ "$#" -eq 1 ]]; then
-        print_colorized WARN "$@"
-    else
-        builtin printf "$@"
-    fi
+    printf "\n${!color_code}%s${RESET}\n" "${message}"
 }
 
 # Setup shell colors for print statements
