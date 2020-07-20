@@ -83,10 +83,10 @@ push-prod-image-release() {
     if [[ "${CI:-false}" == true ]]; then
         test "${DOCKER_USER:?'Missing required environment variable: DOCKER_USER'}"
         test "${DOCKER_PASS:?'Missing required environment variable: DOCKER_PASS'}"
-        test "${LATEST_RELEASE_BRANCH:?'Missing required environment variable: LATEST_RELEASE_BRANCH'}"
+        test "${LATEST_RELEASE_MAJOR_VERSION:?'Missing required environment variable: LATEST_RELEASE_MAJOR_VERSION'}"
         test "${PROD_IMAGE_REPO:?'Missing required environment variable: PROD_IMAGE_REPO'}"
 
-        local latest_tag_regex="^v${LATEST_RELEASE_BRANCH}\.[0-9]+\$"
+        local latest_tag_regex="^v${LATEST_RELEASE_MAJOR_VERSION}\.[0-9]+\$"
         local prod_image="${PROD_IMAGE_REPO}:${GIT_TAG}"
         local rc_image="${DEV_IMAGE_REPO}:$(git describe --match "${GIT_TAG}-rc*" --tags --abbrev=0)"
 
@@ -145,6 +145,8 @@ push-redhat-image() {
 
     # Test for required environment variables exported by CI system
     if [[ "${CI:-false}" == true ]]; then
+        test "${DOCKER_USER:?'Missing required env variable: DOCKER_USER'}"
+        test "${DOCKER_PASS:?'Missing required env variable: DOCKER_PASS'}"
         test "${PROD_IMAGE_REPO:?'Missing required environment variable: PROD_IMAGE_REPO'}"
         test "${REDHAT_REGISTRY:?'Missing required environment variable: REDHAT_IMAGE'}"
         test "${REDHAT_PASS:?'Missing required environment variable: REDHAT_PASS'}"
@@ -152,11 +154,13 @@ push-redhat-image() {
         local prod_image="${PROD_IMAGE_REPO}:${GIT_TAG}"
         local redhat_image="${REDHAT_REGISTRY}:${GIT_TAG}-${REDHAT_RELEASE}"
 
-        print_colorized WARN "Tagging and pushing production image to RedHat Connect."; echo
-        echo "${REDHAT_PASS}" | docker login -u unused --password-stdin scan.connect.redhat.com
-
         print_colorized WARN "Pulling production image for RedHat release ${prod_image}."; echo
+        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
         docker pull "${prod_image}"
+
+        print_colorized WARN "Tagging and pushing production image to RedHat Connect."; echo
+        docker logout
+        echo "${REDHAT_PASS}" | docker login -u unused --password-stdin scan.connect.redhat.com
 
         print_colorized WARN "Tagging and pushing RedHat image ${redhat_image}."; echo
         docker tag "${prod_image}" "${redhat_image}"
