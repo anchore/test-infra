@@ -50,7 +50,9 @@ clean-image() {
 clean() {
     local VENV="${1:?'Missing required parameter: VENV.'}"
     local TEST_IMAGE_NAME="${2:?'Missing required parameter: TEST_IMAGE_NAME.'}"
-    if [[ ${NOPROMPT:-false} == true ]]; then
+    local NOPROMPT="${3:-false}"
+
+    if [[ ${NOPROMPT} == true ]]; then
         clean-all-noprompt "${VENV}" "${TEST_IMAGE_NAME}"
     else
         clean-prompt
