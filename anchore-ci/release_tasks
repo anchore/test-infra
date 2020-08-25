@@ -27,11 +27,10 @@ push-dev-image() {
         docker tag "${TEST_IMAGE_NAME}" "${dev_image}"
         docker push "${dev_image}"
 
-        if [[ "${GIT_BRANCH}" == 'master' ]]; then
-            print_colorized INFO "Tagging and pushing image ${latest_image}."; echo
-            docker tag "${dev_image}" "${latest_image}"
-            docker push "${latest_image}"
-        fi
+        print_colorized INFO "Tagging and pushing image ${latest_image}."; echo
+        docker tag "${dev_image}" "${latest_image}"
+        docker push "${latest_image}"
+
     else
         print_colorized INFO "Tagging and pushing image ${dev_image} using local credentials."; echo
         continue_prompt
