@@ -142,7 +142,7 @@ push-redhat-image() {
         test "${DOCKER_USER:?'Missing required env variable: DOCKER_USER'}"
         test "${DOCKER_PASS:?'Missing required env variable: DOCKER_PASS'}"
         test "${PROD_IMAGE_REPO:?'Missing required environment variable: PROD_IMAGE_REPO'}"
-        test "${REDHAT_REGISTRY:?'Missing required environment variable: REDHAT_IMAGE'}"
+        test "${REDHAT_REGISTRY:?'Missing required environment variable: REDHAT_REGISTRY'}"
         test "${REDHAT_PASS:?'Missing required environment variable: REDHAT_PASS'}"
 
         local prod_image="${PROD_IMAGE_REPO}:${GIT_TAG}"
