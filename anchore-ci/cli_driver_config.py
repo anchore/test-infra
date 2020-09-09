@@ -4,7 +4,10 @@ default_admin_user = "admin"
 
 default_admin_pass = "foobar"
 
-api_url = "http://localhost:2882/v1"
+default_system_wait_timeout = 300
+default_system_wait_interval = 10
+
+api_url = "http://localhost:8228/v1"
 
 test_images = [
     "docker.io/alpine:3.10",

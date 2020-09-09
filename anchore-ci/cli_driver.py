@@ -885,12 +885,12 @@ def subscription_list():
 # System
 def system(context):
     """Invoke the system CLI subcommands."""
-    logger.info("system | starting subcommands [fake]")
+    logger.info("system | starting subcommands")
+    system_wait(context)
     system_del()
     system_errorcodes()
     system_feeds()
     system_status()
-    system_wait()
 
 def system_del():
     pass
@@ -919,8 +919,27 @@ def system_feeds_sync():
 def system_status():
     pass
 
-def system_wait():
-    pass
+def system_wait(context, log=True):
+    if log:
+        logger.info("system_wait | starting")
+    image = random.choice(config.test_images)
+    wait = config.default_system_wait_timeout
+    interval = config.default_system_wait_interval
+
+    command = assemble_command(context, " system wait --timeout {0} --interval {1}".format(wait, interval))
+    try:
+        if log:
+            logger.debug("system_wait | running command {0}".format(command))
+            logger.info("system_wait | waiting for system to be available".format(image))
+        subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        if log:
+            log_results_simple("ok", "ok", "positive", "system_wait", "waited for system")
+            logger.info("image_wait | finished")
+    except Exception as e:
+        if log:
+            logger.debug("system_wait | something went a bit wrong: {0}".format(e))
+            logger.info("system_wait | call failed; returning. Exception: {0}".format(e))
+        return
 # /System
 
 logger = make_logger()
@@ -934,6 +953,10 @@ def parse_config_and_run():
     root_context["password"] = config.default_admin_pass
     root_context["api_url"] = config.api_url
     context = copy.deepcopy(root_context)
+
+    # Wait for the system to be up and ready before doing anything else
+    logger.info("main | Waiting for system to be ready")
+    system_wait(context, False)
 
     # Figure out which top level CLI command is being called, then call it
     command = sys.argv[1] if len(sys.argv) == 2 else "all"
