@@ -178,6 +178,17 @@ test-functional() {
     print_colorized INFO "Finished running functional tests."; echo
 }
 
+test-cli() {
+  hash faker || python -m pip install -q faker
+  hash anchore-cli || python -m pip install -q anchorecli
+
+  print_colorized INFO "Running CLI tests."; echo
+
+  python anchore-ci/cli_driver.py
+
+  print_colorized INFO "Finished running CLI tests."; echo
+}
+
 # TODO rework this so that VENV is optional
 install-cluster-deps() {
     local VENV="${1:?'Missing required parameter: VENV'}"
