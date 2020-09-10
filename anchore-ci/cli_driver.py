@@ -44,7 +44,7 @@ def make_logger():
     logger.addHandler(filehandler)
     return logger
 
-def log_explicit_failure(test_type, action, message):
+def log_explicit_failure(test_type, action, message, exit_on_fail=False):
     if test_type == "positive":
         logger.warn(action + " | failed (positive test) " + message)
         positive_tests["fail"].append("{0} - {1}".format(action, message))
@@ -92,6 +92,12 @@ def log_results_summary():
     logger.info("{0} total negative tests passed".format(len(negative_tests["pass"])))
     logger.info("{0} total negative tests failed".format(len(negative_tests["fail"])))
     logger.info("==============================")
+    if len(positive_tests["fail"]) > 0:
+        logger.warn("One or more positive tests failed. Exiting with failure.")
+        sys.exit(1)
+    if len(negative_tests["fail"]) > 0:
+        logger.warn("One or more negative tests failed. Exiting with failure.")
+        sys.exit(1)
 
 # Account commands
 def account(context):
@@ -323,6 +329,7 @@ def account_user_list(context, test_type):
     acct = fake_account_with_user()
     account_add(context, acct["account_name"], acct["email"], test_type="positive", log=False)
     account_user_add(context, acct["account_name"], acct["user"], acct["passw"], test_type="positive", log=False)
+    acct = fake_account_with_user()
     context["user"] = acct["user"]
     context["password"] = acct["passw"]
 
@@ -886,11 +893,11 @@ def subscription_list():
 def system(context):
     """Invoke the system CLI subcommands."""
     logger.info("system | starting subcommands")
-    system_wait(context)
     system_del()
     system_errorcodes()
     system_feeds()
     system_status()
+    # system_wait has already been called
 
 def system_del():
     pass
