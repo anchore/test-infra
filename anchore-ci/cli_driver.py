@@ -499,11 +499,40 @@ def analysis_archive_rules_list():
 # Evaluate
 def evaluate(context):
     """Invoke the evaluate CLI subcommands."""
-    logger.info("evaluate | starting subcommands [fake]")
-    evaluate_check()
+    logger.info("evaluate | starting subcommands")
+    evaluate_check(context)
 
-def evaluate_check():
-    pass
+def evaluate_check(context, test_type="positive"):
+    """Invoke the evaluate check CLI subcommand."""
+    logger.info("evaluate_check | starting")
+
+    image = random.choice(config.test_images)
+
+    # Wait for the image to be available
+    wait_command = assemble_command(context, " image wait {0}".format(image))
+    try:
+        logger.debug("evaluate_check | running command {0}".format(wait_command))
+        logger.info("evaluate_check | waiting for image {0} to be available".format(image))
+        subprocess.run(wait_command.split(), check=True, stdout=subprocess.PIPE)
+    except Exception as e:
+        logger.debug("evaluate_check | something went a bit wrong waiting for image: {0}".format(e))
+        logger.info("evaluate_check | call failed waiting for image; returning. Exception: {0}".format(e))
+        return
+
+    try:
+        command = assemble_command(context, " evaluate check {0}".format(image))
+        logger.debug("evaluate_check | running command {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response_json = json.loads(completed_proc.stdout)
+        if not response_json:
+            log_explicit_failure(test_type, "evaluate_check", "could not evaluate image {0}".format(image))
+            return
+        logger.debug("evaluate_check | dumping response: {0}".format(response_json))
+        log_results_simple("ok", "ok", test_type, "evaluate_check", "evaluated image {0}".format(image))
+    except Exception as e:
+        logger.debug("evaluate_check | something went a bit wrong: {0}".format(e))
+        logger.info("evaluate_check | call failed; returning. Exception: {0}".format(e))
+    logger.info("evaluate_check | finished")
 # /Evaluate
 
 # Event
@@ -532,6 +561,7 @@ def image(context):
     image_wait(context)
     image_get(context)
     image_content(context)
+    image_content(context, content_type="malware")
     image_metadata(context)
     image_list(context)
     image_vuln(context)
@@ -542,7 +572,7 @@ def image(context):
 def image_add(context, test_type="positive"):
     """Invoke the image add CLI subcommand."""
     logger.info("image_add | starting")
-    for image in config.test_images:
+    for image in config.test_images + config.malware_images + config.clean_images:
         command = assemble_command(context, " image add {0}".format(image))
         try:
             logger.debug("image_add | running command {0}".format(command))
@@ -556,20 +586,24 @@ def image_add(context, test_type="positive"):
             logger.error("image_add | error calling anchore-cli: {0}".format(e))
     logger.info("image_add | finished")
 
-def image_content(context, test_type="positive"):
+def image_content(context, test_type="positive", content_type="all"):
     """Invoke the image content CLI subcommand."""
     logger.info("image_content | starting")
 
+    if content_type == "malware":
+        image = random.choice(config.malware_images)
+    else:
+        image = random.choice(config.test_images)
+
     # Wait for the image to be available
-    image = random.choice(config.test_images)
     command = assemble_command(context, " image wait {0}".format(image))
     try:
         logger.debug("image_content | running command {0}".format(command))
         logger.info("image_content | waiting for image {0} to be available".format(image))
         subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
     except Exception as e:
-        logger.debug("image_content | something went a bit wrong: {0}".format(e))
-        logger.info("image_content | call failed; returning. Exception: {0}".format(e))
+        logger.debug("image_content | something went a bit wrong waiting for image: {0}".format(e))
+        logger.info("image_content | call failed waiting for image; returning. Exception: {0}".format(e))
         return
 
     # Get the content types for our random image
@@ -586,6 +620,11 @@ def image_content(context, test_type="positive"):
         logger.info("image_content | found these content types for image {0}: {1}".format(image, response_json))
 
         for content in response_json:
+            # skip over other types if a content type is specified
+            logger.info("image_content | content: {0}".format(content))
+            if content_type != "all":
+                if content != content_type:
+                    continue
             command = assemble_command(context, " image content {0} {1}".format(image, content))
             logger.debug("image_content | running command {0}".format(command))
             completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
@@ -598,7 +637,7 @@ def image_content(context, test_type="positive"):
         logger.info("image_content | call failed; returning. Exception: {0}".format(e))
         return
 
-    log_results_simple("ok", "ok", test_type, "image_content", "content types tested successfully")
+    log_results_simple("ok", "ok", test_type, "image_content", "{0} content type(s) tested successfully".format(content_type))
     logger.info("image_content | finished")
 
 def image_del(context, force=False, test_type="positive"):
@@ -617,8 +656,8 @@ def image_del(context, force=False, test_type="positive"):
         logger.info("image_del | waiting for image {0} to be available".format(image))
         subprocess.run(wait_command.split(), check=True, stdout=subprocess.PIPE)
     except Exception as e:
-        logger.debug("image_del | something went a bit wrong: {0}".format(e))
-        logger.info("image_del | call failed; returning. Exception: {0}".format(e))
+        logger.debug("image_del | something went a bit wrong waiting for image: {0}".format(e))
+        logger.info("image_del | call failed waiting for image; returning. Exception: {0}".format(e))
         return
 
     try:
@@ -691,8 +730,8 @@ def image_metadata(context, test_type="positive"):
         logger.info("image_metadata | waiting for image {0} to be available".format(image))
         subprocess.run(wait_command.split(), check=True, stdout=subprocess.PIPE)
     except Exception as e:
-        logger.debug("image_metadata | something went a bit wrong: {0}".format(e))
-        logger.info("image_metadata | call failed; returning. Exception: {0}".format(e))
+        logger.debug("image_metadata | something went a bit wrong waiting for image: {0}".format(e))
+        logger.info("image_metadata | call failed waiting for image; returning. Exception: {0}".format(e))
         return
 
     # First, we invoke the command without a metadata type; we expect to get back
@@ -735,8 +774,8 @@ def image_vuln(context, test_type="positive"):
         logger.info("image_vuln | waiting for image {0} to be available".format(image))
         subprocess.run(wait_command.split(), check=True, stdout=subprocess.PIPE)
     except Exception as e:
-        logger.debug("image_vuln | something went a bit wrong: {0}".format(e))
-        logger.info("image_vuln | call failed; returning. Exception: {0}".format(e))
+        logger.debug("image_vuln | something went a bit wrong waiting for image: {0}".format(e))
+        logger.info("image_vuln | call failed waiting for image; returning. Exception: {0}".format(e))
         return
 
     try:
@@ -772,8 +811,8 @@ def image_wait(context, timeout=-1, interval=5, test_type="positive"):
         logger.info("image_wait | waiting for image {0} to be available".format(image))
         subprocess.run(wait_command.split(), check=True, stdout=subprocess.PIPE)
     except Exception as e:
-        logger.debug("image_wait | something went a bit wrong: {0}".format(e))
-        logger.info("image_wait | call failed; returning. Exception: {0}".format(e))
+        logger.debug("image_wait | something went a bit wrong waiting for image: {0}".format(e))
+        logger.info("image_wait | call failed waiting for image; returning. Exception: {0}".format(e))
         return
 
     try:
@@ -844,25 +883,72 @@ def query(context):
 # Repo
 def repo(context):
     """Invoke the repo CLI subcommands."""
-    logger.info("repo | starting subcommands [fake]")
-    repo_add()
+    logger.info("repo | starting subcommands")
+    repo_add(context)
+    repo_list(context)
+    repo_get(context)
     repo_del()
-    repo_get()
-    repo_list()
     repo_unwatch()
     repo_watch()
 
-def repo_add():
-    pass
+def repo_add(context, test_type="positive"):
+    """Invoke the repo add CLI subcommand."""
+    logger.info("repo_add | starting")
+    for repo in config.repositories:
+        command = assemble_command(context, " repo add {0}".format(repo))
+        try:
+            logger.debug("repo_add | running command {0}".format(command))
+            completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+            response_json = json.loads(completed_proc.stdout)
+            logger.debug("repo_add | dumping response: {0}".format(response_json))
+            repo_active = response_json[0]["active"]
+            logger.info("repo_add | added repo {0}; active: {1}".format(repo, repo_active))
+            log_results_simple(repo_active, True, test_type, "repo_add", "added repo {0}".format(repo))
+        except Exception as e:
+            log_explicit_failure(test_type, "repo_add", "failed to add repo {0}".format(repo))
+            logger.error("repo_add | error calling anchore-cli: {0}".format(e))
+    logger.info("repo_add | finished")
 
 def repo_del():
     pass
 
-def repo_get():
-    pass
+def repo_get(context, test_type="positive"):
+    """Invoke the repo get CLI subcommand."""
+    logger.info("repo_get | starting")
 
-def repo_list():
-    pass
+    for repo in config.repositories:
+        command = assemble_command(context, " repo get {0}".format(repo))
+        try:
+            logger.debug("repo_get | running command: {0}".format(command))
+            completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+            response_json = json.loads(completed_proc.stdout)
+            logger.debug("repo_get | dumping response: {0}".format(response_json))
+            repo_active = response_json[0]["active"]
+            # as long as this doesn't throw an exception or return 4xx, we're ok
+            log_results_simple(repo_active, True, test_type, "repo_get", "repo {0} active: {1}".format(repo, repo_active))
+            logger.info("repo_get | finished")
+        except Exception as e:
+            log_explicit_failure(test_type, "repo_get", "failed to get repo {0}".format(repo))
+            logger.error("repo_get | error calling anchore-cli: {0}".format(e))
+    logger.info("repo_get | finished")
+
+def repo_list(context, test_type="positive"):
+    """Invoke the repo list CLI subcommand."""
+    logger.info("repo_list | starting")
+
+    command = assemble_command(context, " repo list")
+    try:
+        logger.debug("repo_list | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response_json = json.loads(completed_proc.stdout)
+        logger.debug("repo_list | dumping response: {0}".format(response_json))
+        number_repos = len(response_json)
+        # as long as this doesn't throw an exception or return 4xx, we're ok
+        log_results_simple("ok", "ok", test_type, "repo_list", "{0} repos found".format(number_repos))
+        logger.info("repo_list | finished")
+    except Exception as e:
+        log_explicit_failure(test_type, "repo_list", "failed to list repos")
+        logger.error("repo_list | error calling anchore-cli: {0}".format(e))
 
 def repo_unwatch():
     pass
@@ -973,6 +1059,7 @@ def parse_config_and_run():
         image(context)
         analysis_archive(context)
         evaluate(context)
+        repo(context)
         event(context)
         policy(context)
         subscription(context)
