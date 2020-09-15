@@ -989,45 +989,107 @@ def system_del():
     pass
 
 def system_feeds(context):
-    system_feeds_list(context)
+    #system_feeds_list(context)
     system_feeds_config(context)
     system_feeds_delete()
     system_feeds_sync()
 
 def system_feeds_config(context):
-    system_feeds_disable(context)
-    system_feeds_enable(context)
+    system_feeds_config_toggle(context, enable=False)
+    system_feeds_config_toggle(context, enable=True)
+    system_feeds_config_toggle(context, enable=False)
+    system_feeds_config_toggle(context, enable=True)
 
-def system_feeds_disable(context, test_type="positive"):
-    pass
+def system_feeds_config_toggle(context, test_type="positive", enable=True):
+    """Invoke the system feeds config enable or disable CLI subcommand.
+    If the enable parameter is True, the command 'system feeds config enable'
+    is invoked. If the enable parameter is False, the command
+    'system feeds config disable' is invoked. This function is ideally
+    called first with enable=False, then again with enable=True; otherwise,
+    there might not be a disabled feed to enable, which shows up as a test
+    failure."""
 
-def system_feeds_enable(context, test_type="positive"):
-    pass
+    action = "enabling" if enable else "disabling"
+    looking_for = "disabled" if enable else "enabled"
+    end_state = "enabled" if enable else "disabled"
+    toggle_flag = "--enable" if enable else "--disable"
+
+    logger.info("system_feeds_config_toggle | starting | {0}, looking for {1}".format(action, looking_for))
+
+    # Iterate through the feeds, then groups, until e find a (en|dis)abled group
+    # to toggle. Doing this randomly instead leads to rather more code, so even if
+    # this is naive (as it just takes the first thing it can toggle) it's simpler.
+    feeds = system_feeds_list(context, return_feeds=True, log=False)
+    for feed in feeds:
+        for group in feed["groups"]:
+            if group["enabled"] != enable:
+                break
+
+    # Did we find one? It should != the param enable.
+    if group["enabled"] == enable:
+        message = "failed to find a {0} group in any feed".format(looking_for)
+        logger.info("system_feeds_config_toggle | " + message)
+        log_explicit_failure(test_type, "system_feeds_config_toggle", message)
+        return
+
+    # Ok, we're clear. Carry on.
+    feed_name = feed["name"]
+    group_name = group["name"]
+    command = assemble_command(context, " system feeds config --group {0} {1} {2}".format(group_name, toggle_flag, feed_name))
+    try:
+        logger.debug("system_feeds_config_toggle | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response_json = json.loads(completed_proc.stdout)
+        logger.debug("system_feeds_config_toggle | dumping response: {0}".format(response_json[0]))
+        if response_json[0]["enabled"] == enable:
+            message = "{0} feed {1} group {2}".format(end_state, feed_name, group_name)
+            log_results_simple("ok", "ok", test_type, "system_feeds_config_toggle", message)
+        else:
+            message = "failed {0} feed {1} group {2}".format(action, feed_name, group_name)
+            log_explicit_failure(test_type, "system_feeds_config_toggle", message)
+            return
+        logger.info("system_feeds_config_toggle | finished")
+    except Exception as e:
+        log_explicit_failure(test_type, "system_feeds_config_toggle", "failed {0} feed/group".format(action))
+        logger.error("system_feeds_config_toggle | error calling anchore-cli: {0}".format(e))
+
+def system_feeds_enable(context, test_type="positive", feed_name=None, group_name=None):
+    """Invoke the system feeds config enable CLI subcommand."""
+    logger.info("system_feeds_enable | starting")
+    logger.info("system_feeds_enable | finished")
 
 def system_feeds_delete():
     pass
 
-def system_feeds_list(context, test_type="positive"):
+def system_feeds_list(context, test_type="positive", return_feeds=False, log=True):
     """Invoke the system feeds list CLI subcommand."""
-    logger.info("system_feeds_list | starting")
+    if log:
+        logger.info("system_feeds_list | starting")
 
     command = assemble_command(context, " system feeds list")
     try:
-        logger.debug("system_feeds_list | running command: {0}".format(command))
+        if log:
+            logger.debug("system_feeds_list | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
         response_json = json.loads(completed_proc.stdout)
-        logger.debug("system_feeds_list | dumping response: {0}".format(response_json[0]))
-        for feed in response_json:
-            logger.debug("feed: {0}".format(feed["name"]))
-            for group in feed["groups"]:
-                logger.debug("    group: {0}; records: {1}".format(group["name"], group["record_count"]))
+        if log:
+            logger.debug("system_feeds_list | dumping response: {0}".format(response_json[0]))
+            for feed in response_json:
+                logger.debug("feed: {0}".format(feed["name"]))
+                for group in feed["groups"]:
+                    logger.debug("    group: {0}; records: {1}".format(group["name"], group["record_count"]))
         number_feeds = len(response_json)
         # as long as this doesn't throw an exception or return 4xx, we're ok
-        log_results_simple("ok", "ok", test_type, "system_feeds_list", "{0} feeds found".format(number_feeds))
-        logger.info("system_feeds_list | finished")
+        if log:
+            log_results_simple("ok", "ok", test_type, "system_feeds_list", "{0} feeds found".format(number_feeds))
+            logger.info("system_feeds_list | finished")
+        if return_feeds:
+            return response_json
     except Exception as e:
-        log_explicit_failure(test_type, "system_feeds_list", "failed to list feeds")
-        logger.error("system_feeds_list | error calling anchore-cli: {0}".format(e))
+        if log:
+            log_explicit_failure(test_type, "system_feeds_list", "failed to list feeds")
+            logger.error("system_feeds_list | error calling anchore-cli: {0}".format(e))
+        return
 
 def system_feeds_sync():
     pass
@@ -1044,7 +1106,7 @@ def system_status(context, test_type="positive"):
         logger.debug("system_status | dumping response: {0}".format(response_json))
         for service in response_json["service_states"]:
             logger.info("system_status | service: {0}; up: {1}".format(service["servicename"], service["service_detail"]["up"]))
-        number_services = len(response_json)
+        number_services = len(response_json["service_states"])
         log_results_simple("ok", "ok", test_type, "system_status", "{0} services found".format(number_services))
         logger.info("system_status | finished")
     except Exception as e:
