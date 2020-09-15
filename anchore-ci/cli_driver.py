@@ -979,38 +979,96 @@ def subscription_list():
 def system(context):
     """Invoke the system CLI subcommands."""
     logger.info("system | starting subcommands")
+    system_feeds(context)
+    system_status(context)
+    system_errorcodes(context)
     system_del()
-    system_errorcodes()
-    system_feeds()
-    system_status()
     # system_wait has already been called
 
 def system_del():
     pass
 
-def system_errorcodes():
-    pass
-
-def system_feeds():
-    system_feeds_config()
+def system_feeds(context):
+    system_feeds_list(context)
+    system_feeds_config(context)
     system_feeds_delete()
-    system_feeds_list()
     system_feeds_sync()
 
-def system_feeds_config():
+def system_feeds_config(context):
+    system_feeds_disable(context)
+    system_feeds_enable(context)
+
+def system_feeds_disable(context, test_type="positive"):
+    pass
+
+def system_feeds_enable(context, test_type="positive"):
     pass
 
 def system_feeds_delete():
     pass
 
-def system_feeds_list():
-    pass
+def system_feeds_list(context, test_type="positive"):
+    """Invoke the system feeds list CLI subcommand."""
+    logger.info("system_feeds_list | starting")
+
+    command = assemble_command(context, " system feeds list")
+    try:
+        logger.debug("system_feeds_list | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response_json = json.loads(completed_proc.stdout)
+        logger.debug("system_feeds_list | dumping response: {0}".format(response_json[0]))
+        for feed in response_json:
+            logger.debug("feed: {0}".format(feed["name"]))
+            for group in feed["groups"]:
+                logger.debug("    group: {0}; records: {1}".format(group["name"], group["record_count"]))
+        number_feeds = len(response_json)
+        # as long as this doesn't throw an exception or return 4xx, we're ok
+        log_results_simple("ok", "ok", test_type, "system_feeds_list", "{0} feeds found".format(number_feeds))
+        logger.info("system_feeds_list | finished")
+    except Exception as e:
+        log_explicit_failure(test_type, "system_feeds_list", "failed to list feeds")
+        logger.error("system_feeds_list | error calling anchore-cli: {0}".format(e))
 
 def system_feeds_sync():
     pass
 
-def system_status():
-    pass
+def system_status(context, test_type="positive"):
+    """Invoke the system status CLI subcommand."""
+    logger.info("system_status | starting")
+
+    command = assemble_command(context, " system status")
+    try:
+        logger.debug("system_status | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response_json = json.loads(completed_proc.stdout)
+        logger.debug("system_status | dumping response: {0}".format(response_json))
+        for service in response_json["service_states"]:
+            logger.info("system_status | service: {0}; up: {1}".format(service["servicename"], service["service_detail"]["up"]))
+        number_services = len(response_json)
+        log_results_simple("ok", "ok", test_type, "system_status", "{0} services found".format(number_services))
+        logger.info("system_status | finished")
+    except Exception as e:
+        log_explicit_failure(test_type, "system_status", "failed to get system status")
+        logger.error("system_status | error calling anchore-cli: {0}".format(e))
+
+def system_errorcodes(context, test_type="positive"):
+    """Invoke the system errorcodes CLI subcommand."""
+    logger.info("system_errorcodes | starting")
+
+    command = assemble_command(context, " system errorcodes")
+    try:
+        logger.debug("system_errorcodes | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response_json = json.loads(completed_proc.stdout)
+        logger.debug("system_errorcodes | dumping response: {0}".format(response_json))
+        for code in response_json:
+            logger.info("system_errorcodes | error code: {0}".format(code["name"]))
+        number_errorcodes = len(response_json)
+        log_results_simple("ok", "ok", test_type, "system_errorcodes", "{0} error codes found".format(number_errorcodes))
+        logger.info("system_errorcodes | finished")
+    except Exception as e:
+        log_explicit_failure(test_type, "system_errorcodes", "failed to get system error codes")
+        logger.error("system_errorcodes | error calling anchore-cli: {0}".format(e))
 
 def system_wait(context, log=True):
     if log:
