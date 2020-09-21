@@ -1160,11 +1160,10 @@ negative_tests = { "pass": [], "fail": [] }
 root_context = dict()
 
 cmd_prefix = config.cmd_prefix
+if os.path.isfile("CLI"):
+    cmd_prefix = config.cli_command_prefix + config.cmd_prefix
 
 def parse_config_and_run():
-
-    if os.path.isfile("CLI"):
-        cmd_prefix = config.cli_command_prefix + config.cmd_prefix
 
     root_context["user"] = config.default_admin_user
     root_context["password"] = config.default_admin_pass
