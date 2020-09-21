@@ -179,6 +179,11 @@ test-functional() {
 }
 
 test-cli() {
+  local project=$(basename `git rev-parse --show-toplevel`)
+  if [[ "${project}" == "anchore-cli" ]]; then
+    touch CLI
+  fi
+
   hash faker || python -m pip install -q faker
   hash anchore-cli || python -m pip install -q anchorecli
 

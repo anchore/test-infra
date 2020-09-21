@@ -4,6 +4,7 @@ import copy
 import json
 import logging
 import time
+import os
 import random
 import subprocess
 import sys
@@ -11,8 +12,6 @@ import sys
 import cli_driver_config as config
 
 from faker import Faker
-
-cmd_prefix = "anchore-cli --json "
 
 def assemble_command(context, args):
     user = " --u " + context["user"]
@@ -1160,7 +1159,12 @@ positive_tests = { "pass": [], "fail": [] }
 negative_tests = { "pass": [], "fail": [] }
 root_context = dict()
 
+cmd_prefix = config.cmd_prefix
+
 def parse_config_and_run():
+
+    if os.path.isfile("CLI"):
+        cmd_prefix = config.cli_command_prefix + config.cmd_prefix
 
     root_context["user"] = config.default_admin_user
     root_context["password"] = config.default_admin_pass

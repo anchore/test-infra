@@ -9,6 +9,10 @@ default_system_wait_interval = 10
 
 api_url = "http://localhost:8228/v1"
 
+cmd_prefix = "anchore-cli --json "
+
+cli_command_prefix = "kubectl exec anchore-cli -- "
+
 repositories = [
     "docker.io/hello-world",         # 8 tags
     "docker.io/ndslabs/nagios-nrpe", # 6 tags
