@@ -179,7 +179,7 @@ test-functional() {
 }
 
 test-cli() {
-  local project=$(basename `git rev-parse --show-toplevel`)
+  local project=$(basename -s .git `git config --get remote.origin.url`)
   if [[ "${project}" == "anchore-cli" ]]; then
     touch CLI
   fi
