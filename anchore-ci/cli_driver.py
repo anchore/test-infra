@@ -1160,14 +1160,16 @@ negative_tests = { "pass": [], "fail": [] }
 root_context = dict()
 
 cmd_prefix = config.cmd_prefix
+api_url = config.local_url
 if os.path.isfile("CLI"):
+    api_url = config.ci_url
     cmd_prefix = config.cli_command_prefix + config.cmd_prefix
 
 def parse_config_and_run():
 
     root_context["user"] = config.default_admin_user
     root_context["password"] = config.default_admin_pass
-    root_context["api_url"] = config.api_url
+    root_context["api_url"] = api_url
     context = copy.deepcopy(root_context)
 
     # Wait for the system to be up and ready before doing anything else

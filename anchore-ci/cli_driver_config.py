@@ -11,11 +11,9 @@ cmd_prefix = "anchore-cli --json "
 
 cli_command_prefix = "kubectl exec anchore-cli -- "
 
-local_api_host_name = "localhost"
-ci_api_host_name = "e2e-testing-anchore-engine-api"
+local_url = "http://localhost:8228/v1"
 
-# Use CI API host name by default
-api_url = "http://" + ci_api_host_name + ":8228/v1"
+ci_url = "http://e2e-testing-anchore-engine-api:8228/v1"
 
 repositories = [
     "docker.io/hello-world",         # 8 tags
