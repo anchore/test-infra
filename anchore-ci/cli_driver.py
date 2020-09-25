@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import copy
+from distutils.util import strtobool
 import json
 import logging
 import time
@@ -886,9 +887,9 @@ def repo(context):
     repo_add(context)
     repo_list(context)
     repo_get(context)
-    repo_del()
-    repo_unwatch()
-    repo_watch()
+    repo_unwatch(context)
+    repo_watch(context)
+    repo_del(context)
 
 def repo_add(context, test_type="positive"):
     """Invoke the repo add CLI subcommand."""
@@ -902,14 +903,31 @@ def repo_add(context, test_type="positive"):
             logger.debug("repo_add | dumping response: {0}".format(response_json))
             repo_active = response_json[0]["active"]
             logger.info("repo_add | added repo {0}; active: {1}".format(repo, repo_active))
-            log_results_simple(repo_active, True, test_type, "repo_add", "added repo {0}".format(repo))
+            # Repo might already exist and be unwatched; as long as there's no error we're ok
+            log_results_simple("ok", "ok", test_type, "repo_add", "added repo {0}".format(repo))
         except Exception as e:
             log_explicit_failure(test_type, "repo_add", "failed to add repo {0}".format(repo))
             logger.error("repo_add | error calling anchore-cli: {0}".format(e))
     logger.info("repo_add | finished")
 
-def repo_del():
-    pass
+def repo_del(context, test_type="positive"):
+    """Invoke the repo del CLI subcommand."""
+    logger.info("repo_del | starting")
+
+    repo = random.choice(config.repositories)
+    command = assemble_command(context, " repo del {0}".format(repo))
+    try:
+        logger.debug("repo_del | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        # This is a bit silly, but the API/CLI is returning a byte literal w/newline, like: b'true\n'
+        response = bool(strtobool(completed_proc.stdout.decode('utf-8').rstrip()))
+        logger.debug("repo_del | dumping response from calling repo del: {0}".format(response))
+        logger.info("repo_del | repo {0} was deleted, and the response was {1}".format(repo, response))
+        log_results_simple(True, response, test_type, "repo_del", "repo {0} deleted".format(repo))
+        logger.info("repo_del | finished")
+    except Exception as e:
+        log_explicit_failure(test_type, "repo_del", "failed to del repo")
+        logger.error("repo_del | error calling anchore-cli: {0}".format(e))
 
 def repo_get(context, test_type="positive"):
     """Invoke the repo get CLI subcommand."""
@@ -923,8 +941,9 @@ def repo_get(context, test_type="positive"):
             response_json = json.loads(completed_proc.stdout)
             logger.debug("repo_get | dumping response: {0}".format(response_json))
             repo_active = response_json[0]["active"]
-            # as long as this doesn't throw an exception or return 4xx, we're ok
-            log_results_simple(repo_active, True, test_type, "repo_get", "repo {0} active: {1}".format(repo, repo_active))
+            # As long as this doesn't throw an exception or return 4xx, we're ok;
+            # the repo might or might not be active/watched
+            log_results_simple("ok", "ok", test_type, "repo_get", "repo {0} status: {1}".format(repo, repo_active))
             logger.info("repo_get | finished")
         except Exception as e:
             log_explicit_failure(test_type, "repo_get", "failed to get repo {0}".format(repo))
@@ -949,11 +968,43 @@ def repo_list(context, test_type="positive"):
         log_explicit_failure(test_type, "repo_list", "failed to list repos")
         logger.error("repo_list | error calling anchore-cli: {0}".format(e))
 
-def repo_unwatch():
-    pass
+def repo_unwatch(context, test_type="positive"):
+    """Invoke the repo unwatch CLI subcommand."""
+    logger.info("repo_unwatch | starting")
 
-def repo_watch():
-    pass
+    repo = random.choice(config.repositories)
+    command = assemble_command(context, " repo unwatch {0}".format(repo))
+    try:
+        logger.debug("repo_unwatch | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response_json = json.loads(completed_proc.stdout)
+        logger.debug("repo_unwatch | dumping response: {0}".format(response_json))
+        repo_active = response_json[0]["active"]
+        logger.info("repo_unwatch | repo {0} was unwatched, and active status is {1}".format(repo, repo_active))
+        log_results_simple(False, repo_active, test_type, "repo_unwatch", "repo {0} unwatched".format(repo))
+        logger.info("repo_unwatch | finished")
+    except Exception as e:
+        log_explicit_failure(test_type, "repo_unwatch", "failed to unwatch repo")
+        logger.error("repo_unwatch | error calling anchore-cli: {0}".format(e))
+
+def repo_watch(context, test_type="positive"):
+    """Invoke the repo watch CLI subcommand."""
+    logger.info("repo_watch | starting")
+
+    repo = random.choice(config.repositories)
+    command = assemble_command(context, " repo watch {0}".format(repo))
+    try:
+        logger.debug("repo_watch | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response_json = json.loads(completed_proc.stdout)
+        logger.debug("repo_watch | dumping response: {0}".format(response_json))
+        repo_active = response_json[0]["active"]
+        logger.info("repo_watch | repo {0} was watched, and active status is {1}".format(repo, repo_active))
+        log_results_simple(True, repo_active, test_type, "repo_watch", "repo {0} watched".format(repo))
+        logger.info("repo_watch | finished")
+    except Exception as e:
+        log_explicit_failure(test_type, "repo_watch", "failed to watch repo")
+        logger.error("repo_watch | error calling anchore-cli: {0}".format(e))
 # /Repo
 
 # Subscription
