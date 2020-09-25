@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+# Useful for debugging - set to True
+dump_responses = False
+
 default_admin_user = "admin"
 
 default_admin_pass = "foobar"
@@ -60,4 +63,12 @@ content_types = [
     "go",
     "malware",
     "nuget"
+]
+
+subscription_types = [
+    "tag_update",
+    "policy_eval",
+    "vuln_update",
+    "repo_update",
+    "analysis_update"
 ]

@@ -44,6 +44,10 @@ def make_logger():
     logger.addHandler(filehandler)
     return logger
 
+def dump_response(component, message):
+    if config.dump_responses:
+        logger.debug("{0} | response: {1}".format(component, message))
+
 def log_explicit_failure(test_type, action, message, exit_on_fail=False):
     if test_type == "positive":
         logger.warn(action + " | failed (positive test) " + message)
@@ -527,7 +531,7 @@ def evaluate_check(context, test_type="positive"):
         if not response_json:
             log_explicit_failure(test_type, "evaluate_check", "could not evaluate image {0}".format(image))
             return
-        logger.debug("evaluate_check | dumping response: {0}".format(response_json))
+        dump_response("evaluate_check", response_json)
         log_results_simple("ok", "ok", test_type, "evaluate_check", "evaluated image {0}".format(image))
     except Exception as e:
         logger.debug("evaluate_check | something went a bit wrong: {0}".format(e))
@@ -900,7 +904,7 @@ def repo_add(context, test_type="positive"):
             logger.debug("repo_add | running command {0}".format(command))
             completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
             response_json = json.loads(completed_proc.stdout)
-            logger.debug("repo_add | dumping response: {0}".format(response_json))
+            dump_response("repo_add", response_json)
             repo_active = response_json[0]["active"]
             logger.info("repo_add | added repo {0}; active: {1}".format(repo, repo_active))
             # Repo might already exist and be unwatched; as long as there's no error we're ok
@@ -921,7 +925,7 @@ def repo_del(context, test_type="positive"):
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
         # This is a bit silly, but the API/CLI is returning a byte literal w/newline, like: b'true\n'
         response = bool(strtobool(completed_proc.stdout.decode('utf-8').rstrip()))
-        logger.debug("repo_del | dumping response from calling repo del: {0}".format(response))
+        dump_response("repo_del", response)
         logger.info("repo_del | repo {0} was deleted, and the response was {1}".format(repo, response))
         log_results_simple(True, response, test_type, "repo_del", "repo {0} deleted".format(repo))
         logger.info("repo_del | finished")
@@ -939,7 +943,7 @@ def repo_get(context, test_type="positive"):
             logger.debug("repo_get | running command: {0}".format(command))
             completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
             response_json = json.loads(completed_proc.stdout)
-            logger.debug("repo_get | dumping response: {0}".format(response_json))
+            dump_response("repo_get", response_json)
             repo_active = response_json[0]["active"]
             # As long as this doesn't throw an exception or return 4xx, we're ok;
             # the repo might or might not be active/watched
@@ -959,7 +963,7 @@ def repo_list(context, test_type="positive"):
         logger.debug("repo_list | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
         response_json = json.loads(completed_proc.stdout)
-        logger.debug("repo_list | dumping response: {0}".format(response_json))
+        dump_response("repo_list", response_json)
         number_repos = len(response_json)
         # as long as this doesn't throw an exception or return 4xx, we're ok
         log_results_simple("ok", "ok", test_type, "repo_list", "{0} repos found".format(number_repos))
@@ -978,7 +982,7 @@ def repo_unwatch(context, test_type="positive"):
         logger.debug("repo_unwatch | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
         response_json = json.loads(completed_proc.stdout)
-        logger.debug("repo_unwatch | dumping response: {0}".format(response_json))
+        dump_response("repo_unwatch", response_json)
         repo_active = response_json[0]["active"]
         logger.info("repo_unwatch | repo {0} was unwatched, and active status is {1}".format(repo, repo_active))
         log_results_simple(False, repo_active, test_type, "repo_unwatch", "repo {0} unwatched".format(repo))
@@ -997,7 +1001,7 @@ def repo_watch(context, test_type="positive"):
         logger.debug("repo_watch | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
         response_json = json.loads(completed_proc.stdout)
-        logger.debug("repo_watch | dumping response: {0}".format(response_json))
+        dump_response("repo_watch", response_json)
         repo_active = response_json[0]["active"]
         logger.info("repo_watch | repo {0} was watched, and active status is {1}".format(repo, repo_active))
         log_results_simple(True, repo_active, test_type, "repo_watch", "repo {0} watched".format(repo))
@@ -1010,19 +1014,87 @@ def repo_watch(context, test_type="positive"):
 # Subscription
 def subscription(context):
     """Invoke the subscription CLI subcommands."""
-    logger.info("subscription | starting subcommands [fake]")
-    subscription_activate()
-    subscription_deactivate()
-    subscription_list()
+    logger.info("subscription | starting subcommands")
+    subscription_list(context)
+    subscription_activate(context)
+    subscription_deactivate(context)
 
-def subscription_activate():
-    pass
+def subscription_get_one(context):
+    """Helper method to grab just one subscription."""
+    command = assemble_command(context, " subscription list")
+    try:
+        logger.debug("subscription_get_one | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response_json = json.loads(completed_proc.stdout)
+        sub = random.choice(response_json)
+        logger.debug("subscrption_get_one | returning subscription {0}".format(sub))
+        return sub
+    except Exception as e:
+        logger.error("subscription_get_one | error calling anchore-cli: {0}".format(e))
 
-def subscription_deactivate():
-    pass
+def subscription_list(context, test_type="positive"):
+    """Invoke the subscription list CLI subcommand."""
+    logger.info("subscription_list | starting")
 
-def subscription_list():
-    pass
+    command = assemble_command(context, " subscription list")
+    try:
+        logger.debug("subscription_list | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response_json = json.loads(completed_proc.stdout)
+        number_subs = len(response_json)
+        logger.info("subscrption_list | found {0} subscriptions".format(number_subs))
+        dump_response("subscription_list", response_json)
+        for sub in response_json:
+            logger.debug("subscription_list | {0}".format(sub))
+        log_results_simple("ok", "ok", test_type, "subscription_list", "{0} subscriptions found".format(number_subs))
+        logger.info("subscription_list | finished")
+    except Exception as e:
+        log_explicit_failure(test_type, "subscription_list", "failed to list subscriptions")
+        logger.error("subscription_list | error calling anchore-cli: {0}".format(e))
+
+def subscription_activate(context, test_type="positive"):
+    """Invoke the subscription activate CLI subcommand."""
+    logger.info("subscription_activate | starting")
+
+    sub = subscription_get_one(context)
+    logger.info("subscription_activate | got {0}".format(sub))
+    sub_key = sub["subscription_key"]
+    sub_type = sub["subscription_type"]
+    command = assemble_command(context, " subscription activate {0} {1}".format(sub_type, sub_key))
+    try:
+        logger.debug("subscription_activate | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response_json = json.loads(completed_proc.stdout)
+        dump_response("subscription_activate", response_json)
+        sub_active = response_json[0]["active"]
+        logger.info("subscrption_activate | subscription active: {0}".format(sub_active))
+        log_results_simple(True, sub_active, test_type, "subscription_activate", "subscription {0}/{1} should be active".format(sub_type, sub_key))
+        logger.info("subscription_activate | finished")
+    except Exception as e:
+        log_explicit_failure(test_type, "subscription_activate", "failed to activate subscription")
+        logger.error("subscription_activate | error calling anchore-cli: {0}".format(e))
+
+def subscription_deactivate(context, test_type="positive"):
+    """Invoke the subscription deactivate CLI subcommand."""
+    logger.info("subscription_deactivate | starting")
+
+    sub = subscription_get_one(context)
+    logger.info("subscription_deactivate | got {0}".format(sub))
+    sub_key = sub["subscription_key"]
+    sub_type = sub["subscription_type"]
+    command = assemble_command(context, " subscription deactivate {0} {1}".format(sub_type, sub_key))
+    try:
+        logger.debug("subscription_deactivate | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response_json = json.loads(completed_proc.stdout)
+        dump_response("subscription_deactivate", response_json)
+        sub_active = response_json[0]["active"]
+        logger.info("subscrption_deactivate | subscription active: {0}".format(sub_active))
+        log_results_simple(False, sub_active, test_type, "subscription_deactivate", "subscription {0}/{1} should not be active".format(sub_type, sub_key))
+        logger.info("subscription_deactivate | finished")
+    except Exception as e:
+        log_explicit_failure(test_type, "subscription_deactivate", "failed to deactivate subscription")
+        logger.error("subscription_deactivate | error calling anchore-cli: {0}".format(e))
 # /Subscription
 
 # System
@@ -1090,7 +1162,7 @@ def system_feeds_config_toggle(context, test_type="positive", enable=True):
         logger.debug("system_feeds_config_toggle | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
         response_json = json.loads(completed_proc.stdout)
-        logger.debug("system_feeds_config_toggle | dumping response: {0}".format(response_json[0]))
+        dump_response("system_feeds_config_toggle", response_json[0])
         if response_json[0]["enabled"] == enable:
             message = "{0} feed {1} group {2}".format(end_state, feed_name, group_name)
             log_results_simple("ok", "ok", test_type, "system_feeds_config_toggle", message)
@@ -1123,7 +1195,7 @@ def system_feeds_list(context, test_type="positive", return_feeds=False, log=Tru
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
         response_json = json.loads(completed_proc.stdout)
         if log:
-            logger.debug("system_feeds_list | dumping response: {0}".format(response_json[0]))
+            dump_response("system_feeds_list", response_json[0])
             for feed in response_json:
                 logger.debug("feed: {0}".format(feed["name"]))
                 for group in feed["groups"]:
@@ -1153,7 +1225,7 @@ def system_status(context, test_type="positive"):
         logger.debug("system_status | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
         response_json = json.loads(completed_proc.stdout)
-        logger.debug("system_status | dumping response: {0}".format(response_json))
+        dump_response("system_status", response_json)
         for service in response_json["service_states"]:
             logger.info("system_status | service: {0}; up: {1}".format(service["servicename"], service["service_detail"]["up"]))
         number_services = len(response_json["service_states"])
@@ -1172,7 +1244,7 @@ def system_errorcodes(context, test_type="positive"):
         logger.debug("system_errorcodes | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
         response_json = json.loads(completed_proc.stdout)
-        logger.debug("system_errorcodes | dumping response: {0}".format(response_json))
+        dump_response("system_errorcodes", response_json)
         for code in response_json:
             logger.info("system_errorcodes | error code: {0}".format(code["name"]))
         number_errorcodes = len(response_json)
