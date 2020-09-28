@@ -1142,6 +1142,11 @@ def system_feeds_config_toggle(context, test_type="positive", enable=True):
     # to toggle. Doing this randomly instead leads to rather more code, so even if
     # this is naive (as it just takes the first thing it can toggle) it's simpler.
     feeds = system_feeds_list(context, return_feeds=True, log=False)
+    if not feeds:
+        logger.info("system_feeds_config_toggle | No feeds available")
+        log_explicit_failure(test_type, "system_feeds_config_toggle", "No feeds available")
+        return
+
     for feed in feeds:
         for group in feed["groups"]:
             if group["enabled"] != enable:
