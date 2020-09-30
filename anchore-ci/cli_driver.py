@@ -1111,16 +1111,21 @@ def system_del():
     pass
 
 def system_feeds(context):
-    #system_feeds_list(context)
+    system_feeds_list(context)
     system_feeds_config(context)
-    system_feeds_delete()
-    system_feeds_sync()
+    system_feeds_delete(context)
+    # system_feeds_sync(context)
+
+def system_feeds_sync():
+    pass
 
 def system_feeds_config(context):
     system_feeds_config_toggle(context, enable=False)
     system_feeds_config_toggle(context, enable=True)
     system_feeds_config_toggle(context, enable=False)
     system_feeds_config_toggle(context, enable=True)
+    # leave a group disabled so it can be deleted
+    system_feeds_config_toggle(context, enable=False)
 
 def system_feeds_config_toggle(context, test_type="positive", enable=True):
     """Invoke the system feeds config enable or disable CLI subcommand.
@@ -1180,13 +1185,43 @@ def system_feeds_config_toggle(context, test_type="positive", enable=True):
         log_explicit_failure(test_type, "system_feeds_config_toggle", "failed {0} feed/group".format(action))
         logger.error("system_feeds_config_toggle | error calling anchore-cli: {0}".format(e))
 
-def system_feeds_enable(context, test_type="positive", feed_name=None, group_name=None):
-    """Invoke the system feeds config enable CLI subcommand."""
-    logger.info("system_feeds_enable | starting")
-    logger.info("system_feeds_enable | finished")
+def system_feeds_delete(context, test_type="positive"):
+    """Invoke the system feeds delete CLI subcommand."""
+    logger.info("system_feeds_delete | starting")
 
-def system_feeds_delete():
-    pass
+    # Get feeds/groups, find one that's disabled, delete it
+    feeds = system_feeds_list(context, return_feeds=True, log=False)
+    if not feeds:
+        logger.info("system_feeds_delete | No feeds available")
+        log_explicit_failure(test_type, "system_feeds_delete", "No feeds available")
+        return
+
+    for feed in feeds:
+        for group in feed["groups"]:
+            if group["enabled"] == False:
+                break
+
+    feed_name = feed["name"]
+    group_name = group["name"]
+    command = assemble_command(context, " system feeds delete --group {0} {1}".format(group_name, feed_name))
+    try:
+        logger.debug("system_feeds_delete | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response_json = json.loads(completed_proc.stdout)
+        dump_response("system_feeds_config_toggle", response_json[0])
+        # Enabled shows up as false after deletion, but I don't see a status otherwise;
+        # other than getting an error from the API, I assume this worked
+        if response_json[0]["enabled"] == False:
+            message = "Deleted feed {0} group {1}".format(feed_name, group_name)
+            log_results_simple("ok", "ok", test_type, "system_feeds_delete", message)
+        else:
+            message = "Failed deleting feed {0} group {1}".format(feed_name, group_name)
+            log_explicit_failure(test_type, "system_feeds_delete", message)
+            return
+        logger.info("system_feeds_delete | finished")
+    except Exception as e:
+        log_explicit_failure(test_type, "system_feeds_delete", "failed {0} feed/group".format(action))
+        logger.error("system_feeds_delete | error calling anchore-cli: {0}".format(e))
 
 def system_feeds_list(context, test_type="positive", return_feeds=False, log=True):
     """Invoke the system feeds list CLI subcommand."""
@@ -1217,9 +1252,6 @@ def system_feeds_list(context, test_type="positive", return_feeds=False, log=Tru
             log_explicit_failure(test_type, "system_feeds_list", "failed to list feeds")
             logger.error("system_feeds_list | error calling anchore-cli: {0}".format(e))
         return
-
-def system_feeds_sync():
-    pass
 
 def system_status(context, test_type="positive"):
     """Invoke the system status CLI subcommand."""
