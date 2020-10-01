@@ -50,10 +50,10 @@ def dump_response(component, message):
 
 def log_explicit_failure(test_type, action, message, exit_on_fail=False):
     if test_type == "positive":
-        logger.warn(action + " | failed (positive test) " + message)
+        logger.warning(action + " | failed (positive test) " + message)
         positive_tests["fail"].append("{0} - {1}".format(action, message))
     else:
-        logger.warn(action + " | failed (negative (test) " + message)
+        logger.warning(action + " | failed (negative (test) " + message)
         negative_tests["fail"].append("{0} - {1}".format(action, message))
 
 def log_results_simple(desired_state, state, test_type, action, message):
@@ -97,10 +97,10 @@ def log_results_summary():
     logger.info("{0} total negative tests failed".format(len(negative_tests["fail"])))
     logger.info("==============================")
     if len(positive_tests["fail"]) > 0:
-        logger.warn("One or more positive tests failed. Exiting with failure.")
+        logger.warning("One or more positive tests failed. Exiting with failure.")
         sys.exit(1)
     if len(negative_tests["fail"]) > 0:
-        logger.warn("One or more negative tests failed. Exiting with failure.")
+        logger.warning("One or more negative tests failed. Exiting with failure.")
         sys.exit(1)
 
 # Account commands
@@ -134,8 +134,8 @@ def account_add(context, name, email, test_type="positive", log=True):
         logger.debug("account_add | running command {0}".format(command))
     try:
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        state = response_json["state"]
+        response = json.loads(completed_proc.stdout)
+        state = response["state"]
         if log:
             log_results_simple("enabled", state, test_type, "account_add", "account: {0}; email: {1}; state: {2}".format(name, email, state))
             logger.info("account_add | finished")
@@ -151,8 +151,8 @@ def account_get(context, name, test_type="positive"):
     try:
         logger.debug("account_get | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        state = response_json["state"]
+        response = json.loads(completed_proc.stdout)
+        state = response["state"]
         log_results_simple("enabled", state, test_type, "account_get", "account: {0}; state: {1}".format(name, state))
         logger.info("account_get | finished")
     except Exception as e:
@@ -166,8 +166,8 @@ def account_disable(context, name, test_type="positive"):
     try:
         logger.debug("account_disable | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        state = response_json["state"]
+        response = json.loads(completed_proc.stdout)
+        state = response["state"]
         log_results_simple("disabled", state, test_type, "account_disable", "account: {0}; state: {1}".format(name, state))
         logger.info("account_disable | finished")
     except Exception as e:
@@ -181,8 +181,8 @@ def account_enable(context, name, test_type="positive"):
     try:
         logger.debug("account_enable | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        state = response_json["state"]
+        response = json.loads(completed_proc.stdout)
+        state = response["state"]
         log_results_simple("enabled", state, test_type, "account_enable", "account: {0}; state: {1}".format(name, state))
         logger.info("account_enable | finished")
     except Exception as e:
@@ -196,14 +196,14 @@ def account_del(context, name, test_type="positive"):
     try:
         logger.debug("account_del | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        state = response_json["state"]
+        response = json.loads(completed_proc.stdout)
+        state = response["state"]
         log_results_simple("deleting", state, test_type, "account_del", "account: {0}; state: {1}".format(name, state))
         logger.info("account_del | finished")
     except Exception as e:
         if isinstance(e, subprocess.CalledProcessError):
-            response_json = json.loads(e.stdout)
-            if response_json["message"] == "Invalid account state change requested. Cannot go from state enabled to state deleting":
+            response = json.loads(e.stdout)
+            if response["message"] == "Invalid account state change requested. Cannot go from state enabled to state deleting":
                 log_results_simple("deleting", "enabled", test_type, "account_del", "could not delete account: {0}".format(name))
         else:
             log_explicit_failure(test_type, "account_del", "failed to delete account {0}".format(name))
@@ -227,15 +227,15 @@ def account_list(context, account_override=False, test_type="positive"):
     try:
         logger.debug("account_list | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        number_accounts = len(response_json)
+        response = json.loads(completed_proc.stdout)
+        number_accounts = len(response)
         log_results_simple("ok", "ok", test_type, "account_list", "{0} accounts found".format(number_accounts))
         logger.info("account_list | finished")
     except Exception as e:
         if isinstance(e, subprocess.CalledProcessError):
-            response_json = json.loads(e.stdout)
+            response = json.loads(e.stdout)
             if account_override:
-                if response_json == "Unauthorized" or response_json["httpcode"] == 403:
+                if response == "Unauthorized" or response["httpcode"] == 403:
                     log_results_simple("ok", "notok", "negative", "account_list", "non-admin user could not list accounts")
                 else:
                     log_explicit_failure(test_type, "account_list", "failed to list accounts")
@@ -276,8 +276,8 @@ def account_user_list(context, test_type):
     try:
         logger.debug("account_user_list | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        number_users = len(response_json)
+        response = json.loads(completed_proc.stdout)
+        number_users = len(response)
         if number_users:
             log_results_simple("ok", "ok", test_type, "account_user_list", "{0} users found".format(number_users))
         else:
@@ -297,8 +297,8 @@ def account_user_list(context, test_type):
         command = assemble_command(context, " account user list --account {0}".format(account_name))
         logger.debug("account_user_list | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        number_users = len(response_json)
+        response = json.loads(completed_proc.stdout)
+        number_users = len(response)
         if not number_users:
             # desired result
             log_results_simple("ok", "notok", "negative", "account_user_list", "no users found (good)")
@@ -319,8 +319,8 @@ def account_user_list(context, test_type):
         command = assemble_command(context, " account user list --account {0}".format(acct["account_name"]))
         logger.debug("account_user_list | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        number_users = len(response_json)
+        response = json.loads(completed_proc.stdout)
+        number_users = len(response)
         if number_users:
             log_results_simple("ok", "ok", "positive", "account_user_list", "{0} users found".format(number_users))
         else:
@@ -342,14 +342,14 @@ def account_user_list(context, test_type):
     try:
         logger.debug("account_user_list | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        number_users = len(response_json)
+        response = json.loads(completed_proc.stdout)
+        number_users = len(response)
         # we expect this to throw an exception
         log_results_simple("ok", "ok", "negative", "account_user_list", "{0} users found - but should have thrown an exception".format(number_users))
     except Exception as e:
         if isinstance(e, subprocess.CalledProcessError):
-            response_json = json.loads(e.stdout)
-            if response_json == "Unauthorized" or response_json["httpcode"] == 403:
+            response = json.loads(e.stdout)
+            if response == "Unauthorized" or response["httpcode"] == 403:
                 log_results_simple("ok", "notok", "negative", "account_user_list", "Non-admin user could not list accounts (good)")
             else:
                 logger.error("account_user_list | error calling anchore-cli: {0}".format(e))
@@ -367,15 +367,15 @@ def account_user_add(context, account, username, userpass, test_type, log=True):
         logger.debug("account_user_add | running command {0}".format(command))
     try:
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        created = response_json["created_at"]
-        user = response_json["username"]
+        response = json.loads(completed_proc.stdout)
+        created = response["created_at"]
+        user = response["username"]
         if log:
             logger.info("account_user_add | finished")
             if created and user:
                 log_results_simple("ok", "ok", "positive", "account_user_add", "user: {0} added at {1}".format(user, created))
             else:
-                log_results_simple("ok", "notok", "positive", "account_user_add", "user not added; json response: {0}".format(response_json))
+                log_results_simple("ok", "notok", "positive", "account_user_add", "user not added; json response: {0}".format(response))
     except Exception as e:
         if log:
             log_explicit_failure(test_type, "account_user_add", "failed to add user {0} to account {1}".format(username, account))
@@ -455,22 +455,99 @@ def account_whoami(context, test_type="positive"):
 # Analysis archive
 def analysis_archive(context):
     """Invoke the analysis_archive CLI subcommands."""
-    logger.info("analysis-archive| starting subcommands [fake]")
-    analysis_archive_images()
+    logger.info("analysis-archive| starting subcommands")
+    analysis_archive_images(context)
     analysis_archive_rules()
 
-def analysis_archive_images():
-    analysis_archive_images_add()
-    analysis_archive_images_del()
+def analysis_archive_images(context):
+    analysis_archive_images_add(context)
+    analysis_archive_images_del(context)
     analysis_archive_images_get()
     analysis_archive_images_list()
     analysis_archive_images_restore()
 
-def analysis_archive_images_add():
-    pass
+def analysis_archive_images_add(context, test_type="positive"):
+    """Invoke the analysis-archive images add CLI subcommand."""
+    logger.info("analysis_archive_images_add | starting")
 
-def analysis_archive_images_del():
-    pass
+    try:
+        image_data = random_image_data(context)
+        image = "{0}:{1}".format(image_data[0]["image_detail"][0]["repo"], image_data[0]["image_detail"][0]["tag"])
+        image_sha = image_data[0]["image_detail"][0]["digest"]
+    except Exception as e:
+        logger.info("analysis_archive_images_add | call failed; returning. Exception: {0}".format(e))
+        log_explicit_failure(test_type, "analysis_archive_images_add", "error {0}".format(e))
+        return
+
+    # Wait for the image to be available
+    wait_command = assemble_command(context, " image wait {0}".format(image))
+    try:
+        logger.debug("analysis_archive_images_add | running command {0}".format(wait_command))
+        logger.info("analysis_archive_images_add | waiting for image {0} to be available".format(image))
+        subprocess.run(wait_command.split(), check=True, stdout=subprocess.PIPE)
+    except Exception as e:
+        logger.debug("analysis_archive_images_add | something went a bit wrong waiting for image: {0}".format(e))
+        logger.info("analysis_archive_images_add | call failed waiting for image; returning. Exception: {0}".format(e))
+        return
+    try:
+        command = assemble_command(context, " analysis-archive images add {0}".format(image_sha))
+        logger.debug("analysis_archive_images_add | running command {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response = json.loads(completed_proc.stdout)
+        dump_response("analysis_archive_images_add", response)
+        status = response[0]["status"]
+        log_results_simple("archived", status, test_type, "analysis_archive_images_add", "archived image {0}".format(image))
+    except Exception as e:
+        logger.debug("analysis_archive_images_add | something went a bit wrong: {0}".format(e))
+        logger.info("analysis_archive_images_add | call failed; returning. Exception: {0}".format(e))
+    logger.info("analysis_archive_images_add | finished")
+
+def analysis_archive_images_del(context, test_type="positive"):
+    """Invoke the analysis-archive images del CLI subcommand."""
+    logger.info("analysis_archive_images_del | starting")
+
+    try:
+        image_data = random_image_data(context)
+        image = "{0}:{1}".format(image_data[0]["image_detail"][0]["repo"], image_data[0]["image_detail"][0]["tag"])
+        image_sha = image_data[0]["image_detail"][0]["digest"]
+    except Exception as e:
+        logger.info("analysis_archive_images_del | call failed; returning. Exception: {0}".format(e))
+        log_explicit_failure(test_type, "analysis_archive_images_del", "error {0}".format(e))
+        return
+
+    # Wait for the image to be available
+    wait_command = assemble_command(context, " image wait {0}".format(image))
+    try:
+        logger.debug("analysis_archive_images_del | running command {0}".format(wait_command))
+        logger.info("analysis_archive_images_del | waiting for image {0} to be available".format(image))
+        subprocess.run(wait_command.split(), check=True, stdout=subprocess.PIPE)
+    except Exception as e:
+        logger.debug("analysis_archive_images_del | something went a bit wrong waiting for image: {0}".format(e))
+        logger.info("analysis_archive_images_del | call failed waiting for image; returning. Exception: {0}".format(e))
+        return
+    try:
+        command = assemble_command(context, " analysis-archive images del {0}".format(image_sha))
+        logger.debug("analysis_archive_images_del | running command {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response = json.loads(completed_proc.stdout)
+        dump_response("analysis_archive_images_del", response)
+        # If the image was in the archive, the response will be empty; if not, it'll return
+        # 404 w/a message in JSON, and a non-zero exit code from the CLI, which has to be
+        # handled in the except clause below.
+        # TODO Consider whether that (image not in archive) qualifies as a negative test
+        if not response:
+            log_results_simple("ok", "ok", test_type, "analysis_archive_images_del", "deleted image {0} from archive".format(image))
+    except Exception as e:
+        if isinstance(e, subprocess.CalledProcessError):
+            response = json.loads(e.stdout)
+            status_code = response["httpcode"]
+            message = response["message"]
+            log_msg = "Attempted to delete image {0} from archive, but it was not in the archive; message: {1} HTTP status code: {2}"
+            log_results_simple("ok", "ok", test_type, "analysis_archive_images_del", log_msg.format(image, status_code, message))
+        else:
+            logger.debug("analysis_archive_images_del | something went a bit wrong: {0}".format(e))
+            logger.info("analysis_archive_images_del | call failed; returning. Exception: {0}".format(e))
+    logger.info("analysis_archive_images_del | finished")
 
 def analysis_archive_images_get():
     pass
@@ -527,11 +604,11 @@ def evaluate_check(context, test_type="positive"):
         command = assemble_command(context, " evaluate check {0}".format(image))
         logger.debug("evaluate_check | running command {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        if not response_json:
+        response = json.loads(completed_proc.stdout)
+        if not response:
             log_explicit_failure(test_type, "evaluate_check", "could not evaluate image {0}".format(image))
             return
-        dump_response("evaluate_check", response_json)
+        dump_response("evaluate_check", response)
         log_results_simple("ok", "ok", test_type, "evaluate_check", "evaluated image {0}".format(image))
     except Exception as e:
         logger.debug("evaluate_check | something went a bit wrong: {0}".format(e))
@@ -559,7 +636,7 @@ def event_list():
 
 # Image
 def image(context):
-    """Invoke the image CLI subcommands."""
+    """Invoke the image CLI subcommands, other than image deletion (because other commands depend on images being in place)."""
     logger.info("image | starting subcommands")
     image_add(context)
     image_wait(context)
@@ -569,9 +646,12 @@ def image(context):
     image_metadata(context)
     image_list(context)
     image_vuln(context)
+    #image_import(context)
+
+def image_deletion(context):
+    """Invoke the image del CLI subcommand."""
     image_del(context, test_type="negative")
     image_del(context, force=True)
-    #image_import(context)
 
 def image_add(context, test_type="positive"):
     """Invoke the image add CLI subcommand."""
@@ -581,8 +661,8 @@ def image_add(context, test_type="positive"):
         try:
             logger.debug("image_add | running command {0}".format(command))
             completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-            response_json = json.loads(completed_proc.stdout)
-            image_status = response_json[0]["image_status"]
+            response = json.loads(completed_proc.stdout)
+            image_status = response[0]["image_status"]
             logger.info("image_add | added image {0}; status: {1}".format(image, image_status))
             log_results_simple(image_status, "active", test_type, "image_add", "added image {0}".format(image))
         except Exception as e:
@@ -616,14 +696,14 @@ def image_content(context, test_type="positive", content_type="all"):
         command = assemble_command(context, " image content {0}".format(image))
         logger.debug("image_content | running command {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        if not response_json:
+        response = json.loads(completed_proc.stdout)
+        if not response:
             log_explicit_failure(test_type, "image_content", "no content types for image {0}".format(image))
             return
 
-        logger.info("image_content | found these content types for image {0}: {1}".format(image, response_json))
+        logger.info("image_content | found these content types for image {0}: {1}".format(image, response))
 
-        for content in response_json:
+        for content in response:
             # skip over other types if a content type is specified
             logger.info("image_content | content: {0}".format(content))
             if content_type != "all":
@@ -632,8 +712,8 @@ def image_content(context, test_type="positive", content_type="all"):
             command = assemble_command(context, " image content {0} {1}".format(image, content))
             logger.debug("image_content | running command {0}".format(command))
             completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-            response_json = json.loads(completed_proc.stdout)
-            content_length = len(response_json["content"])
+            response = json.loads(completed_proc.stdout)
+            content_length = len(response["content"])
             logger.info("image_content | found {0} of content type {1} in image {2}".format(content_length, content, image))
 
     except Exception as e:
@@ -667,14 +747,14 @@ def image_del(context, force=False, test_type="positive"):
     try:
         logger.debug("image_del | running command {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        status = response_json["status"]
+        response = json.loads(completed_proc.stdout)
+        status = response["status"]
         log_results_simple("deleting", status, test_type, "image_del", "delete image {0}".format(image))
         logger.info("image_del | finished")
     except Exception as e:
         if isinstance(e, subprocess.CalledProcessError):
-            response_json = json.loads(e.stdout)
-            if response_json["message"] == "cannot delete image that is the latest of its tags, and has active subscription":
+            response = json.loads(e.stdout)
+            if response["message"] == "cannot delete image that is the latest of its tags, and has active subscription":
                 if force:
                     log_explicit_failure(test_type, "image_del", "could not delete image: {0}".format(image))
                 else:
@@ -684,21 +764,37 @@ def image_del(context, force=False, test_type="positive"):
             log_explicit_failure(test_type, "image_del", "failed to delete image")
             logger.error("image_del | error calling anchore-cli: {0}".format(e))
 
+def random_image_data(context):
+    """Helper method to grab random image metadata (for one image)."""
+    images = image_get(context, return_images=True, log=False)
+    return random.choice(images)
+
 # Note, you don't have to wait for the image to be available to call `image get`
-def image_get(context, test_type="positive"):
+def image_get(context, test_type="positive", return_images=False, log=True):
     """Invoke the image get CLI subcommand."""
-    logger.info("image_get | starting")
+    images = []
+    if log:
+        logger.info("image_get | starting")
     for image in config.test_images:
         command = assemble_command(context, " image get {0}".format(image))
         try:
-            logger.debug("image_get | running command {0}".format(command))
-            subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+            if log:
+                logger.debug("image_get | running command {0}".format(command))
+            completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+            if return_images:
+                images.append(json.loads(completed_proc.stdout))
             # as long as this doesn't throw an exception or return 4xx, we're ok
-            log_results_simple("ok", "ok", test_type, "image_get", "got image {0}".format(image))
+            if log:
+                log_results_simple("ok", "ok", test_type, "image_get", "got image {0}".format(image))
         except Exception as e:
             log_explicit_failure(test_type, "image_get", "failed to get image {0}".format(image))
             logger.error("image_get | error calling anchore-cli: {0}".format(e))
-    logger.info("image_get | finished")
+    if return_images:
+        if log:
+            logger.info("image_get | finished")
+        return images
+    if log:
+        logger.info("image_get | finished")
 
 def image_import(context):
     pass
@@ -711,8 +807,8 @@ def image_list(context, test_type="positive"):
     try:
         logger.debug("image_list | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        number_images = len(response_json)
+        response = json.loads(completed_proc.stdout)
+        number_images = len(response)
         # as long as this doesn't throw an exception or return 4xx, we're ok
         log_results_simple("ok", "ok", test_type, "image_list", "{0} images found".format(number_images))
         logger.info("image_list | finished")
@@ -744,10 +840,10 @@ def image_metadata(context, test_type="positive"):
     try:
         logger.debug("image_metadata | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
+        response = json.loads(completed_proc.stdout)
         failed = False
         for key in config.metadata_types:
-            if not key in response_json:
+            if not key in response:
                 failed = True
                 log_explicit_failure(test_type, "image_metadata", "{0} metadata type was not found for {1}".format(key, image))
             subcommand = assemble_command(context, " image metadata {0} {1}".format(image, key))
@@ -788,9 +884,9 @@ def image_vuln(context, test_type="positive"):
             command = assemble_command(context, " image vuln {0} {1}".format(image, key))
             logger.debug("image_vuln | running command: {0}".format(command))
             completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-            response_json = json.loads(completed_proc.stdout)
-            vuln_type = response_json["vulnerability_type"]
-            num_vulns = len(response_json["vulnerabilities"])
+            response = json.loads(completed_proc.stdout)
+            vuln_type = response["vulnerability_type"]
+            num_vulns = len(response["vulnerabilities"])
             if not vuln_type or vuln_type != key:
                 failed = True
                 log_explicit_failure(test_type, "image_vuln", "{0} was not expected vuln type {1} for image {2}".format(vuln_type, key, image))
@@ -822,8 +918,8 @@ def image_wait(context, timeout=-1, interval=5, test_type="positive"):
     try:
         logger.debug("image_wait | running command {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        status = response_json[0]["analysis_status"]
+        response = json.loads(completed_proc.stdout)
+        status = response[0]["analysis_status"]
         log_results_simple("analyzed", status, test_type, "image_wait", "waited for image {0}".format(image))
         logger.info("image_wait | finished")
     except Exception as e:
@@ -903,9 +999,9 @@ def repo_add(context, test_type="positive"):
         try:
             logger.debug("repo_add | running command {0}".format(command))
             completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-            response_json = json.loads(completed_proc.stdout)
-            dump_response("repo_add", response_json)
-            repo_active = response_json[0]["active"]
+            response = json.loads(completed_proc.stdout)
+            dump_response("repo_add", response)
+            repo_active = response[0]["active"]
             logger.info("repo_add | added repo {0}; active: {1}".format(repo, repo_active))
             # Repo might already exist and be unwatched; as long as there's no error we're ok
             log_results_simple("ok", "ok", test_type, "repo_add", "added repo {0}".format(repo))
@@ -942,9 +1038,9 @@ def repo_get(context, test_type="positive"):
         try:
             logger.debug("repo_get | running command: {0}".format(command))
             completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-            response_json = json.loads(completed_proc.stdout)
-            dump_response("repo_get", response_json)
-            repo_active = response_json[0]["active"]
+            response = json.loads(completed_proc.stdout)
+            dump_response("repo_get", response)
+            repo_active = response[0]["active"]
             # As long as this doesn't throw an exception or return 4xx, we're ok;
             # the repo might or might not be active/watched
             log_results_simple("ok", "ok", test_type, "repo_get", "repo {0} status: {1}".format(repo, repo_active))
@@ -962,9 +1058,9 @@ def repo_list(context, test_type="positive"):
     try:
         logger.debug("repo_list | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        dump_response("repo_list", response_json)
-        number_repos = len(response_json)
+        response = json.loads(completed_proc.stdout)
+        dump_response("repo_list", response)
+        number_repos = len(response)
         # as long as this doesn't throw an exception or return 4xx, we're ok
         log_results_simple("ok", "ok", test_type, "repo_list", "{0} repos found".format(number_repos))
         logger.info("repo_list | finished")
@@ -981,9 +1077,9 @@ def repo_unwatch(context, test_type="positive"):
     try:
         logger.debug("repo_unwatch | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        dump_response("repo_unwatch", response_json)
-        repo_active = response_json[0]["active"]
+        response = json.loads(completed_proc.stdout)
+        dump_response("repo_unwatch", response)
+        repo_active = response[0]["active"]
         logger.info("repo_unwatch | repo {0} was unwatched, and active status is {1}".format(repo, repo_active))
         log_results_simple(False, repo_active, test_type, "repo_unwatch", "repo {0} unwatched".format(repo))
         logger.info("repo_unwatch | finished")
@@ -1000,9 +1096,9 @@ def repo_watch(context, test_type="positive"):
     try:
         logger.debug("repo_watch | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        dump_response("repo_watch", response_json)
-        repo_active = response_json[0]["active"]
+        response = json.loads(completed_proc.stdout)
+        dump_response("repo_watch", response)
+        repo_active = response[0]["active"]
         logger.info("repo_watch | repo {0} was watched, and active status is {1}".format(repo, repo_active))
         log_results_simple(True, repo_active, test_type, "repo_watch", "repo {0} watched".format(repo))
         logger.info("repo_watch | finished")
@@ -1025,8 +1121,8 @@ def subscription_get_one(context):
     try:
         logger.debug("subscription_get_one | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        sub = random.choice(response_json)
+        response = json.loads(completed_proc.stdout)
+        sub = random.choice(response)
         logger.debug("subscrption_get_one | returning subscription {0}".format(sub))
         return sub
     except Exception as e:
@@ -1040,11 +1136,11 @@ def subscription_list(context, test_type="positive"):
     try:
         logger.debug("subscription_list | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        number_subs = len(response_json)
+        response = json.loads(completed_proc.stdout)
+        number_subs = len(response)
         logger.info("subscrption_list | found {0} subscriptions".format(number_subs))
-        dump_response("subscription_list", response_json)
-        for sub in response_json:
+        dump_response("subscription_list", response)
+        for sub in response:
             logger.debug("subscription_list | {0}".format(sub))
         log_results_simple("ok", "ok", test_type, "subscription_list", "{0} subscriptions found".format(number_subs))
         logger.info("subscription_list | finished")
@@ -1064,9 +1160,9 @@ def subscription_activate(context, test_type="positive"):
     try:
         logger.debug("subscription_activate | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        dump_response("subscription_activate", response_json)
-        sub_active = response_json[0]["active"]
+        response = json.loads(completed_proc.stdout)
+        dump_response("subscription_activate", response)
+        sub_active = response[0]["active"]
         logger.info("subscrption_activate | subscription active: {0}".format(sub_active))
         log_results_simple(True, sub_active, test_type, "subscription_activate", "subscription {0}/{1} should be active".format(sub_type, sub_key))
         logger.info("subscription_activate | finished")
@@ -1086,9 +1182,9 @@ def subscription_deactivate(context, test_type="positive"):
     try:
         logger.debug("subscription_deactivate | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        dump_response("subscription_deactivate", response_json)
-        sub_active = response_json[0]["active"]
+        response = json.loads(completed_proc.stdout)
+        dump_response("subscription_deactivate", response)
+        sub_active = response[0]["active"]
         logger.info("subscrption_deactivate | subscription active: {0}".format(sub_active))
         log_results_simple(False, sub_active, test_type, "subscription_deactivate", "subscription {0}/{1} should not be active".format(sub_type, sub_key))
         logger.info("subscription_deactivate | finished")
@@ -1171,9 +1267,9 @@ def system_feeds_config_toggle(context, test_type="positive", enable=True):
     try:
         logger.debug("system_feeds_config_toggle | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        dump_response("system_feeds_config_toggle", response_json[0])
-        if response_json[0]["enabled"] == enable:
+        response = json.loads(completed_proc.stdout)
+        dump_response("system_feeds_config_toggle", response[0])
+        if response[0]["enabled"] == enable:
             message = "{0} feed {1} group {2}".format(end_state, feed_name, group_name)
             log_results_simple("ok", "ok", test_type, "system_feeds_config_toggle", message)
         else:
@@ -1207,11 +1303,11 @@ def system_feeds_delete(context, test_type="positive"):
     try:
         logger.debug("system_feeds_delete | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        dump_response("system_feeds_config_toggle", response_json[0])
+        response = json.loads(completed_proc.stdout)
+        dump_response("system_feeds_config_toggle", response[0])
         # Enabled shows up as false after deletion, but I don't see a status otherwise;
         # other than getting an error from the API, I assume this worked
-        if response_json[0]["enabled"] == False:
+        if response[0]["enabled"] == False:
             message = "Deleted feed {0} group {1}".format(feed_name, group_name)
             log_results_simple("ok", "ok", test_type, "system_feeds_delete", message)
         else:
@@ -1233,20 +1329,20 @@ def system_feeds_list(context, test_type="positive", return_feeds=False, log=Tru
         if log:
             logger.debug("system_feeds_list | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
+        response = json.loads(completed_proc.stdout)
         if log:
-            dump_response("system_feeds_list", response_json[0])
-            for feed in response_json:
+            dump_response("system_feeds_list", response[0])
+            for feed in response:
                 logger.debug("feed: {0}".format(feed["name"]))
                 for group in feed["groups"]:
                     logger.debug("    group: {0}; records: {1}".format(group["name"], group["record_count"]))
-        number_feeds = len(response_json)
+        number_feeds = len(response)
         # as long as this doesn't throw an exception or return 4xx, we're ok
         if log:
             log_results_simple("ok", "ok", test_type, "system_feeds_list", "{0} feeds found".format(number_feeds))
             logger.info("system_feeds_list | finished")
         if return_feeds:
-            return response_json
+            return response
     except Exception as e:
         if log:
             log_explicit_failure(test_type, "system_feeds_list", "failed to list feeds")
@@ -1261,11 +1357,15 @@ def system_status(context, test_type="positive"):
     try:
         logger.debug("system_status | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        dump_response("system_status", response_json)
-        for service in response_json["service_states"]:
-            logger.info("system_status | service: {0}; up: {1}".format(service["servicename"], service["service_detail"]["up"]))
-        number_services = len(response_json["service_states"])
+        response = json.loads(completed_proc.stdout)
+        dump_response("system_status", response)
+        for service in response["service_states"]:
+            if type(service["service_detail"]) == str:
+                service_detail = service["service_detail"]
+            else:
+                service_detail = service["service_detail"]["up"]
+            logger.info("system_status | service: {0}; up: {1}".format(service["servicename"], service_detail))
+        number_services = len(response["service_states"])
         log_results_simple("ok", "ok", test_type, "system_status", "{0} services found".format(number_services))
         logger.info("system_status | finished")
     except Exception as e:
@@ -1280,11 +1380,11 @@ def system_errorcodes(context, test_type="positive"):
     try:
         logger.debug("system_errorcodes | running command: {0}".format(command))
         completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
-        response_json = json.loads(completed_proc.stdout)
-        dump_response("system_errorcodes", response_json)
-        for code in response_json:
+        response = json.loads(completed_proc.stdout)
+        dump_response("system_errorcodes", response)
+        for code in response:
             logger.info("system_errorcodes | error code: {0}".format(code["name"]))
-        number_errorcodes = len(response_json)
+        number_errorcodes = len(response)
         log_results_simple("ok", "ok", test_type, "system_errorcodes", "{0} error codes found".format(number_errorcodes))
         logger.info("system_errorcodes | finished")
     except Exception as e:
@@ -1343,6 +1443,7 @@ def parse_config_and_run():
         context = copy.deepcopy(root_context)
         image(context)
         analysis_archive(context)
+        image_deletion(context)
         evaluate(context)
         repo(context)
         event(context)
