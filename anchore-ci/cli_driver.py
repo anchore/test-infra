@@ -1197,11 +1197,9 @@ def subscription_deactivate(context, test_type="positive"):
 def system(context):
     """Invoke the system CLI subcommands."""
     logger.info("system | starting subcommands")
-    system_feeds(context)
     system_status(context)
     system_errorcodes(context)
     system_del()
-    # system_wait has already been called
 
 def system_del():
     pass
@@ -1414,6 +1412,44 @@ def system_wait(context, log=True):
         return
 # /System
 
+# Registry
+def registry(context):
+    """Invoke the registry CLI subcommands."""
+    logger.info("registry | starting subcommands")
+    registry_add(context)
+    registry_get(context)
+    registry_list(context)
+    registry_update(context)
+    registry_del(context)
+
+def registry_add(context):
+    pass
+
+def registry_get(context):
+    pass
+
+def registry_list(context):
+    """Invoke the registry list CLI subcommand.
+    WIP
+    logger.info("resgisrty_list | starting")
+
+    command = assemble_command(context, " registry list")
+    try:
+        logger.debug("registry_list | running command: {0}".format(command))
+    except Exception as e:
+        log_explicit_failure(test_type, "registry_list", "failed to list registries")
+        logger.error("registry_list | error calling anchore-cli: {0}".format(e))
+    """
+    pass
+
+def registry_update(context):
+    pass
+
+def registry_del(context):
+    pass
+
+# /Registry
+
 logger = make_logger()
 positive_tests = { "pass": [], "fail": [] }
 negative_tests = { "pass": [], "fail": [] }
@@ -1449,7 +1485,11 @@ def parse_config_and_run():
         event(context)
         policy(context)
         subscription(context)
+
+        # Note that system feeds subcommands are not tested here since they can
+        # take a long time; run system_feeds() explicitly for that
         system(context)
+        registry(context)
     else:
         func = getattr(sys.modules[__name__], command)
         func(context)
