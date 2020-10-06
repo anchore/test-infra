@@ -2,6 +2,7 @@
 
 import copy
 from distutils.util import strtobool
+from dotenv import load_dotenv
 import json
 import logging
 import time
@@ -1416,38 +1417,104 @@ def system_wait(context, log=True):
 def registry(context):
     """Invoke the registry CLI subcommands."""
     logger.info("registry | starting subcommands")
+    load_dotenv()
+    if (not os.getenv("REGISTRY_URL") or
+        not os.getenv("REGISTRY_USER") or
+        not os.getenv("REGISTRY_TOKEN")):
+        logger.info("registry | No registry URL or credentials; skipping registry commands.")
+        return
+
     registry_add(context)
-    registry_get(context)
+    registry_add(context)
     registry_list(context)
+    registry_get(context)
     registry_update(context)
     registry_del(context)
 
 def registry_add(context):
-    pass
+    """Invoke the registry add CLI subcommand."""
+    logger.info("registry_add | starting")
+    reg = os.getenv("REGISTRY_URL")
+    reg_user = os.getenv("REGISTRY_USER")
+    reg_token = os.getenv("REGISTRY_TOKEN")
+    command = assemble_command(context, " registry add {0} {1} {2}".format(reg, reg_user, reg_token))
+    try:
+        logger.debug("registry_add | running command {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response = json.loads(completed_proc.stdout)
+        reg_name = response[0]["registry_name"]
+        reg_type = response[0]["registry_type"]
+        reg_user = response[0]["registry_user"]
+        logger.info("registry_add | added reg {0} {1} {2}".format(reg_name, reg_type, reg_user))
+        log_results_simple("ok", "ok", "positive", "registry_add", "added registry {0}".format(reg_name))
+    except Exception as e:
+        if isinstance(e, subprocess.CalledProcessError):
+            response = json.loads(e.stdout)
+            if response["message"] == "registry already exists in DB":
+                log_results_simple("ok", "notok", "negative", "registry_add", "registry {0} already exists".format(reg))
+            else:
+                log_explicit_failure(test_type, "registry_add", "failed to add registry {0}".format(reg))
+                logger.error("registry_add | error calling anchore-cli: {0}".format(e))
+    logger.info("registry_add | finished")
 
-def registry_get(context):
-    pass
+def registry_get(context, test_type="positive"):
+    """Invoke the registry get CLI subcommand."""
+    logger.info("registry_get | starting")
+    reg = random.choice(config.registries)
+    command = assemble_command(context, " registry get {0}".format(reg))
+    try:
+        logger.debug("registry_get | running command {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response = json.loads(completed_proc.stdout)
+        reg_name = response[0]["registry_name"]
+        reg_type = response[0]["registry_type"]
+        reg_user = response[0]["registry_user"]
+        logger.info("registry_get | got reg {0} {1} {2}".format(reg_name, reg_type, reg_user))
+        log_results_simple("ok", "ok", "positive", "registry_get", "got registry {0}".format(reg_name))
+    except Exception as e:
+        log_explicit_failure(test_type, "registry_get", "failed to get registry {0}".format(reg))
+        logger.error("registry_get | error calling anchore-cli: {0}".format(e))
+    logger.info("registry_get | finished")
 
-def registry_list(context):
-    """Invoke the registry list CLI subcommand.
-    WIP
+def registry_list(context, test_type="positive"):
+    """Invoke the registry list CLI subcommand."""
     logger.info("resgisrty_list | starting")
 
     command = assemble_command(context, " registry list")
     try:
         logger.debug("registry_list | running command: {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        response = json.loads(completed_proc.stdout)
+        dump_response("registry_list", response)
+        num_reg = len(response)
+        for reg in response:
+            logger.info("registry_list | registry {0}, type {1}, user {2}".format(reg["registry"], reg["registry_type"], reg["registry_user"]))
+        log_results_simple("ok", "ok", "positive", "registry_list", "Found {0} registries".format(num_reg))
+        logger.info("registry_list | finished")
     except Exception as e:
         log_explicit_failure(test_type, "registry_list", "failed to list registries")
         logger.error("registry_list | error calling anchore-cli: {0}".format(e))
-    """
-    pass
 
 def registry_update(context):
     pass
 
-def registry_del(context):
-    pass
-
+def registry_del(context, test_type="positive"):
+    """Invoke the registry del CLI subcommand."""
+    logger.info("registry_del | starting")
+    reg = os.getenv("REGISTRY_URL")
+    command = assemble_command(context, " registry del {0}".format(reg))
+    try:
+        logger.debug("registry_del | running command {0}".format(command))
+        completed_proc = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE)
+        # Like with repo_del: the API/CLI is returning a byte literal w/newline, like: b'true\n'
+        response = bool(strtobool(completed_proc.stdout.decode('utf-8').rstrip()))
+        dump_response("registry_del", response)
+        logger.info("registry_del | registry {0} was deleted, and the response was {1}".format(reg, response))
+        log_results_simple(True, response, test_type, "registry_del", "registry {0} deleted".format(reg))
+        logger.info("registry_del | finished")
+    except Exception as e:
+        log_explicit_failure(test_type, "registry_del", "failed to del registry {0}".format(reg))
+        logger.error("registry_del | error calling anchore-cli: {0}".format(e))
 # /Registry
 
 logger = make_logger()
@@ -1461,7 +1528,7 @@ if os.path.isfile("CLI"):
     api_url = config.ci_url
     cmd_prefix = config.cli_command_prefix + config.cmd_prefix
 
-def parse_config_and_run():
+def run_cli_driver():
 
     root_context["user"] = config.default_admin_user
     root_context["password"] = config.default_admin_pass
@@ -1485,7 +1552,6 @@ def parse_config_and_run():
         event(context)
         policy(context)
         subscription(context)
-
         # Note that system feeds subcommands are not tested here since they can
         # take a long time; run system_feeds() explicitly for that
         system(context)
@@ -1497,5 +1563,5 @@ def parse_config_and_run():
     log_results_summary()
 
 if __name__ == '__main__':
-    parse_config_and_run()
+    run_cli_driver()
 

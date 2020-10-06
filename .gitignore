@@ -4,3 +4,6 @@ vendor/
 *.test
 __pycache__/
 *.py[cod]
+.env*
+.venv
+.python-version
