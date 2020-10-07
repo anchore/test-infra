@@ -186,6 +186,7 @@ test-cli() {
 
   hash faker || python -m pip install -q faker
   hash anchore-cli || python -m pip install -q anchorecli
+  python -m pip install python-dotenv
 
   print_colorized INFO "Running CLI tests."; echo
 
