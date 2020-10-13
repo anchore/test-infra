@@ -88,9 +88,6 @@ push-rc-image() {
         print_colorized WARN "Preparing image ${rc_image} for push to DockerHub."; echo
         echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
 
-        print_colorized INFO "Pulling dev image for release candidate: ${dev_image}."; echo
-        docker pull "${dev_image}"
-
         print_colorized WARN "Tagging and pushing image ${rc_image}."; echo
         docker tag "${dev_image}" "${rc_image}"
         docker push "${rc_image}"
