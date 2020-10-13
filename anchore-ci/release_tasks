@@ -82,7 +82,7 @@ push-rc-image() {
         test "${DOCKER_USER:?'Missing required environment variable: DOCKER_USER'}"
         test "${DOCKER_PASS:?'Missing required environment variable: DOCKER_PASS'}"
 
-        local dev_image="${DEV_IMAGE_REPO}:${COMMIT_SHA}"
+        local dev_image="${DEV_IMAGE_REPO%%-dev*}:dev"
         local rc_image="${DEV_IMAGE_REPO}:${GIT_TAG}"
 
         print_colorized WARN "Preparing image ${rc_image} for push to DockerHub."; echo
