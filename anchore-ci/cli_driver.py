@@ -901,7 +901,7 @@ def image_vuln(context, test_type="positive"):
         logger.error("image_vuln | error calling anchore-cli: {0}".format(e))
 
 def image_wait(context, timeout=-1, interval=5, test_type="positive"):
-    logger.info("image_vuln | starting")
+    logger.info("image_wait | starting")
     image = random.choice(config.test_images)
     command = assemble_command(context, " image wait {0} --timeout {1} --interval {2}".format(image, timeout, interval))
 
