@@ -273,3 +273,11 @@ compose-down() {
     export TEST_IMAGE_NAME
     docker-compose -f ${COMPOSE_FILE} down
 }
+
+dump_db_schema() {
+  local NAMESPACE="${1:-default}"
+  local DB="${2:-anchore}"
+  local DB_POD="$(kubectl get pods | grep postgresql | awk {'print $1'})"
+
+  kubectl exec --namespace ${NAMESPACE} --stdin --tty  ${DB_POD} -- pg_dump --schema-only ${DB} | grep -v -e \-\- -e '^[[:space:]]*$'
+}
