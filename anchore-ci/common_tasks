@@ -279,5 +279,5 @@ dump_db_schema() {
   local DB="${2:-anchore}"
   local DB_POD="$(kubectl get pods | grep postgresql | awk {'print $1'})"
 
-  kubectl exec --namespace ${NAMESPACE} --stdin --tty  ${DB_POD} -- pg_dump --schema-only ${DB} | grep -v -e \-\- -e '^[[:space:]]*$'
+  kubectl exec --namespace ${NAMESPACE} --stdin --tty  ${DB_POD} -- pg_dump --schema-only ${DB} | grep -v -e \-\- -e '^[[:space:]]*$' | sed s/\r//
 }
