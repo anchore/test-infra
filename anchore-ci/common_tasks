@@ -281,12 +281,7 @@ dump_db_schema() {
 
   hash anchore-cli || python -m pip install -q anchorecli
 
-  
-  print_colorized INFO "Waiting for API to be ready."; echo
-
   anchore-cli --u admin --p foobar system wait --timeout 300 --interval 10 --feedsready '' --servicesready 'catalog,apiext,policy_engine,simplequeue,analyzer'
-
-  print_colorized INFO "Checking database schema."; echo
 
   kubectl exec --namespace ${NAMESPACE} --stdin --tty  ${DB_POD} -- pg_dump --schema-only ${DB} | grep -v -e \-\- -e '^[[:space:]]*$' | sed s/\r//
 }
