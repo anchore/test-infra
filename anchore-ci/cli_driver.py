@@ -2415,6 +2415,36 @@ def registry_del(context, test_type="positive"):
 
 # /Registry
 
+
+def load_accounts(context):
+    """Add the specified number of accounts, each with the specified number of users."""
+    logger.info("load_accounts | starting")
+    for i in range(context["num_accounts"]):
+        acct = fake_account_with_user()
+        account_add(
+            context,
+            acct["account_name"],
+            acct["email"],
+            "positive",
+        )
+        for j in range(context["num_users"]):
+            if (j > 0) and (j % 10) == 0:
+                logger.info(
+                    "load_accounts | Created {} of {} users.".format(
+                        j, context["num_users"]
+                    )
+                )
+            faker = Faker()
+            account_user_add(
+                context,
+                acct["account_name"],
+                faker.user_name(),
+                faker.password(),
+                "positive",
+                False,
+            )
+
+
 logger = make_logger()
 positive_tests = {"pass": [], "fail": []}
 negative_tests = {"pass": [], "fail": []}
@@ -2436,10 +2466,19 @@ def run_cli_driver():
 
     # Wait for the system to be up and ready before doing anything else
     logger.info("main | Waiting for system to be ready")
-    system_wait(context, False)
+    # system_wait(context, False)
 
     # Figure out which top level CLI command is being called, then call it
-    command = sys.argv[1] if len(sys.argv) == 2 else "all"
+    # TODO: rewrite w/argparse
+    if len(sys.argv) == 2:
+        command = sys.argv[1]
+    elif len(sys.argv) == 4:
+        command = sys.argv[1]
+        context["num_accounts"] = int(sys.argv[2])
+        context["num_users"] = int(sys.argv[3])
+    else:
+        command = "all"
+
     if command == "all":
         account(context)
         context = copy.deepcopy(root_context)
